@@ -139,23 +139,52 @@ class ColorGrid(object):
             raise Exception(f'error refnum 201...    index == {index}    value == {value}')
 process_buffer = ColorGrid()
 future_buffer = ColorGrid()
-def calculate_square_neighborhoods(radius, count): # Try 2, 3 or 8, 5
-    hp = math.pi / 2
-    q = math.pi / 4
-    a = math.pi * 2 / (count * 4)
-    neighborhoods=[]
-    for n in range(count):
-        neighborhood=[]
-        for edges in ((0,1),(1,2),(2,3),(3,0)):
-            cntr0 = (int(round(math.cos(n*a+q+edges[0]*hp)*radius*math.sqrt(2),0)), int(round(math.sin(n*a+q+edges[0]*hp)*radius*math.sqrt(2),0)))
-            cntr1 = (int(round(math.cos(n*a+q+edges[1]*hp)*radius*math.sqrt(2),0)), int(round(math.sin(n*a+q+edges[1]*hp)*radius*math.sqrt(2),0)))
-            corner = cntr0[0]+cntr1[0], cntr0[1]+cntr1[1]
-            neighborhood.append(cntr0)
-            neighborhood.append(corner)
-        neighborhoods.append(neighborhood)
+def calculate_neighborhood(orientation_fraction = 0, sides_count = 4, radius = any, has_corners = True, allow_zero_angle = False):
+    if radius == any:
+        radius = int(sides_count / 4) + 1
+    hp = math.pi * 2 / sides_count
+    if allow_zero_angle:
+        q = 0
+    else:
+        q = math.pi / sides_count
+    n = math.pi * 2 * orientation_fraction / sides_count
+    neighborhood=[]
+    corners = []
+    last_side = sides_count - 1
+    for this_side in range(sides_count):
+        cntr0 = (int(round(math.cos(n+q+last_side*hp)*radius*math.sqrt(2),0)), int(round(math.sin(n+q+last_side*hp)*radius*math.sqrt(2),0)))
+        cntr1 = (int(round(math.cos(n+q+this_side*hp)*radius*math.sqrt(2),0)), int(round(math.sin(n+q+this_side*hp)*radius*math.sqrt(2),0)))
+        corner = cntr0[0]+cntr1[0], cntr0[1]+cntr1[1]
+        neighborhood.append(cntr0)
+        corners.append(corner)
+        last_side = this_side
+    if has_corners:
+        neighborhood += corners
+    return neighborhood
+def calculate_neighborhoods(orientation_count = 3, sides_count = 4, radius = any, has_corners = True):
+    hp = math.pi * 2 / sides_count
+    q = math.pi / sides_count
+    a = math.pi * 2 / (orientation_count * sides_count)
+    accepted_radius = False
+    passed_in_radius = radius
+    if radius == any:
+        radius = 1
+    while not accepted_radius:
+        if radius == passed_in_radius:
+            accepted_radius == True
+        locations = []
+        neighborhoods=[]
+        for n in range(orientation_count):
+            neighborhood = calculate_neighborhood(n / orientation_count, sides_count, radius, has_corners)
+            locations += neighborhood
+            neighborhoods.append(neighborhood)
+        print(f'in calculate_neighborhoods, (neighborhoods, radius, orientation_count) = {(neighborhoods, radius, orientation_count)}')
+        if len(set(locations)) == len(locations):
+            accepted_radius = radius
+        else:
+            radius += 1
+    print(f'len(neighborhoods) == ',len(neighborhoods))
     return neighborhoods
-def calculate_neighborhood(size, offset):
-    pass
 def unique(them):
     if len(them) == 0:
         return them
@@ -231,7 +260,7 @@ def display_process_buffer():
     return
 def initWorld(): #Initialize and draw some stuff to start with.
     global neighborhood_shapes
-    neighborhood_shapes = calculate_square_neighborhoods(4,5)
+    neighborhood_shapes = calculate_neighborhoods(radius = 4, orientation_count = 5, sides_count = 4)
     clusters = []
     clusters.append(((0,1),(0,0),(0,-1))) # blinker
     clusters.append(((0,1),(1,1),(-1,0),(0,0),(0,-1))) # r-pent
@@ -242,6 +271,7 @@ def initWorld(): #Initialize and draw some stuff to start with.
     clusters.append(((-2,0),(-1,0),(0,0),(1,0),(2,0))) # o-pent
     clusters.append(((-1,0),(0,-1),(0,0),(1,0),(0,1))) # x-pent
     number_of_clusters = random.randint(7,11)
+    n_shape_number = random.randint(0, len(neighborhood_shapes) - 1)
     for _ in range(number_of_clusters):
         cluster = random.choice(clusters)
         if True:
@@ -272,14 +302,15 @@ def initWorld(): #Initialize and draw some stuff to start with.
                 rc = [random.randint(0,255), random.randint(0,255), random.randint(0,255)]
             color_choices.append(rc)
         print(cluster)
-        rns = random.choice(neighborhood_shapes)
-        print(f'neighborhood shape == {rns}')
+        rns = neighborhood_shapes[n_shape_number]
+        print(f'neighborhood shape number {n_shape_number} == {rns}')
+        n_shape_number += 1
+        n_shape_number %= len(neighborhood_shapes)
         destx = random.randint(WS[0]//3,WS[0]*2//3)
         desty = random.randint(WS[1]//3,WS[1]*2//3)
         for xy in cluster:
             print(xy)
-            print('=-=-=-=-=-= ',(xy[0]*rns[0][0]+xy[1]*rns[2][0]+destx, xy[1]*rns[2][1]+xy[0]*rns[0][1]+desty),random.choice(color_choices))
-            process_buffer.Surface.set_at((xy[0]*rns[0][0]+xy[1]*rns[2][0]+destx, xy[1]*rns[2][1]+xy[0]*rns[0][1]+desty),random.choice(color_choices))
+            process_buffer.Surface.set_at((xy[0]*rns[0][0]+xy[1]*rns[1][0]+destx, xy[1]*rns[1][1]+xy[0]*rns[0][1]+desty),random.choice(color_choices))
     display_process_buffer()
 def mutateColor(c):
     c=list(c)
