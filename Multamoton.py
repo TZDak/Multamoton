@@ -26,17 +26,191 @@ global sine_wave_angle
 global neighborhood_shapes
 global all_neighborhood_locations
 global halo
+def max_if_any(arg):
+    if len(arg) == 0:
+        return 0
+    else:
+        return max(arg)
+def min_if_any(arg):
+    if len(arg) == 0:
+        return 0
+    else:
+        return min(arg)
+def max_if_any(arg):
+    if len(arg) == 0:
+        return 0
+    else:
+        return max(arg)
+pas = lambda *args, **kwargs:None
+def bitwise_and(arg):
+    if len(arg) == 0:
+        return 0
+    return functools.reduce(operator.and_, arg)
+def bitwise_inclusive_or(arg):
+    if len(arg) == 0:
+        return 0
+    return functools.reduce(operator.or_, arg)
+def bitwise_exclusive_or(arg):
+    if len(arg) == 0:
+        return 0
+    return functools.reduce(operator.xor, arg)
+def neighborhood_size():
+    return SIDES_PER_NEIGHBORHOOD + NEIGHBORHOODS_INCLUDE_CORNERS * SIDES_PER_NEIGHBORHOOD
+def sign(n):
+    return int(mpmath.sign(int(n)))
+def zsplit(splitter, to_be_split):
+    tbs = to_be_split
+    return 1 + (splitter > tbs) - (splitter < tbs)
+safe_eval_dict = dict({k: eval('set.'+k) for k in dir(set)})
+coldict = dict({k: eval('collections.'+k) for k in dir(collections)})
+safe_eval_dict.update(coldict)
+iterdict = dict({k: eval('itertools.'+k) for k in dir(itertools)})
+safe_eval_dict.update(iterdict)
+funcdict = dict({k: eval('functools.'+k) for k in dir(functools)})
+safe_eval_dict.update(funcdict)
+decdict = dict({k: eval('decimal.'+k) for k in dir(decimal)})
+safe_eval_dict.update(decdict)
+colordict = dict({k: eval('colorsys.'+k) for k in dir(colorsys)})
+safe_eval_dict.update(colordict)
+tmplist = ['abs', 'all', 'any', 'ascii', 'bin', 'bool', 'bytearray', 'bytes', 'chr', 'complex', 'dict', 'divmod', 'enumerate']
+tmplist += ['filter', 'float', 'format', 'frozenset', 'getattr', 'hasattr', 'hash', 'hex', 'int', 'isinstance', 'issubclass']
+tmplist += ['iter', 'len', 'list', 'map', 'oct', 'ord', 'pow', 'property', 'range', 'repr', 'reversed', 'round']
+tmplist += ['set', 'slice', 'sorted', 'str', 'sum', 'tuple', 'type', 'vars', 'zip']
+tmpdict = dict({k: eval(k) for k in tmplist})
+safe_eval_dict.update(tmpdict)
+mpdict = dict({k: eval('operator.'+k) for k in dir(operator)})
+safe_eval_dict.update(mpdict)
+mpdict = dict({k: eval('mpmath.'+k) for k in dir(mpmath)})
+safe_eval_dict.update(mpdict)
+finalizedict = {'intersection':set.intersection, 'union':set.union, 'max':max_if_any, 'min':min_if_any, 'zsplit':zsplit, 'sign':sign}
+finalizedict.update({'bitwise_and':bitwise_and, 'bitwise_inclusive_or':bitwise_inclusive_or, 'bitwise_exclusive_or':bitwise_exclusive_or})
+finalizedict.update({'neighborhood_size':neighborhood_size, 'print':print, 'input':pas, 'eval':pas, 'exit':pas, 'quit':pas})
+safe_eval_dict.update(finalizedict)
+list_of_consensus_options = []
+list_of_consensus_options.append('-1')
+list_of_consensus_options.append('BIRTH')
+list_of_consensus_options.append('SURVIVAL')
+list_of_consensus_options.append('min(census)')
+list_of_consensus_options.append('max(census)')
+list_of_consensus_options.append('sum(census)')
+list_of_consensus_options.append('len(census)')
+list_of_consensus_options.append('len(census)-1')
+list_of_consensus_options.append('min(census)+1')
+list_of_consensus_options.append('max(census)-1')
+list_of_consensus_options.append('bitwise_and(census)')
+list_of_consensus_options.append('sum(census)//len(census)')
+list_of_consensus_options.append('bitwise_inclusive_or(census)')
+list_of_consensus_options.append('bitwise_exclusive_or(census)')
+list_of_consensus_options.append('sum(census)-NUMBER_OF_UNIVERSES')
+list_of_consensus_options.append('sum(census)%NUMBER_OF_UNIVERSES')
+list_of_consensus_options.append('neighborhood_size()-max(census)')
+list_of_consensus_options.append('BIRTH if len(census)>3 else SURVIVAL')
+list_of_consensus_options.append('BIRTH if len(census)>4 else SURVIVAL')
+list_of_consensus_options.append('BIRTH if len(census)>5 else SURVIVAL')
+list_of_consensus_options.append('SURVIVAL if len(census)==2 else DEATH')
+list_of_consensus_options.append('min(census.intersection(BIRTH_RULE.union(SURVIVAL_RULE)))')
+list_of_consensus_options.append('max(census.intersection(BIRTH_RULE.union(SURVIVAL_RULE)))')
+list_of_consensus_options.append('(SURVIVAL,max(census),DEATH)[zsplit(len(census)-1,NUMBER_OF_UNIVERSES)]')
+list_of_consensus_options.append('(SURVIVAL,max(census),DEATH)[zsplit(len(census)-2,NUMBER_OF_UNIVERSES)]')
+list_of_consensus_options.append('SURVIVAL if len(census) in [2, 3] else BIRTH if len(census)==4 else DEATH')
+list_of_consensus_options.append('BIRTH if len(census)>=min([neighborhood_size(),NUMBER_OF_UNIVERSES]) else SURVIVAL')
+list_of_birth_rule_options = []
+list_of_birth_rule_options.append({3})
+list_of_birth_rule_options.append({2, 3, 4})
+list_of_birth_rule_options.append({3, 4})
+list_of_birth_rule_options.append({3, 6})
+list_of_birth_rule_options.append({3, 4, 5})
+list_of_birth_rule_options.append({3, 6, 8})
+list_of_birth_rule_options.append({3, 5, 7})
+list_of_birth_rule_options.append({1, 3, 5, 7})
+list_of_birth_rule_options.append({3, 7, 8})
+list_of_birth_rule_options.append({3, 6, 7, 8})
+list_of_birth_rule_options.append({3, 5, 6, 7, 8})
+list_of_birth_rule_options.append({4, 5, 6, 7, 8})
+list_of_birth_rule_options.append({1})
+list_of_survival_rule_options = []
+list_of_survival_rule_options.append({2, 3})
+list_of_survival_rule_options.append({4})
+list_of_survival_rule_options.append({3})
+list_of_survival_rule_options.append({2})
+list_of_survival_rule_options.append({})
+list_of_survival_rule_options.append({3, 4})
+list_of_survival_rule_options.append({5})
+list_of_survival_rule_options.append({1, 2, 5})
+list_of_survival_rule_options.append({1, 2, 3, 4})
+list_of_survival_rule_options.append({4, 5, 6, 7, 8})
+list_of_survival_rule_options.append({1, 2, 3, 4, 5})
+list_of_survival_rule_options.append({2, 4, 5})
+list_of_survival_rule_options.append({2, 3, 8})
+list_of_survival_rule_options.append({1, 3, 5, 8})
+list_of_survival_rule_options.append({4, 5, 6, 7})
+list_of_survival_rule_options.append({1, 3, 5, 7})
+list_of_survival_rule_options.append({2, 3, 5, 6, 7, 8})
+list_of_survival_rule_options.append({3, 4, 6, 7, 8})
+list_of_survival_rule_options.append({5, 6, 7, 8})
+list_of_survival_rule_options.append({2, 3, 4, 5})
+list_of_survival_rule_options.append({1, 2, 3, 4, 5, 6, 7, 8})
+list_of_survival_rule_options.append({1})
+list_of_predefined_bs_options = []
+list_of_predefined_bs_options.append(({3},{2, 3}))
+list_of_predefined_bs_options.append(({3},{4}))
+list_of_predefined_bs_options.append(({3},{3}))
+list_of_predefined_bs_options.append(({3},{2}))
+list_of_predefined_bs_options.append(({2, 3, 4},{}))
+list_of_predefined_bs_options.append(({3, 4},{3, 4}))
+list_of_predefined_bs_options.append(({3, 6},{2, 3}))
+list_of_predefined_bs_options.append(({3, 4, 5},{5}))
+list_of_predefined_bs_options.append(({3, 6},{1, 2, 5}))
+list_of_predefined_bs_options.append(({3},{1, 2, 3, 4}))
+list_of_predefined_bs_options.append(({3},{4, 5, 6, 7, 8}))
+list_of_predefined_bs_options.append(({3},{1, 2, 3, 4, 5}))
+list_of_predefined_bs_options.append(({3, 6, 8},{2, 4, 5}))
+list_of_predefined_bs_options.append(({3, 5, 7},{2, 3, 8}))
+list_of_predefined_bs_options.append(({3, 5, 7},{1, 3, 5, 8}))
+list_of_predefined_bs_options.append(({3, 4, 5},{4, 5, 6, 7}))
+list_of_predefined_bs_options.append(({1, 3, 5, 7},{1, 3, 5, 7}))
+list_of_predefined_bs_options.append(({3, 7, 8},{2, 3, 5, 6, 7, 8}))
+list_of_predefined_bs_options.append(({3, 6, 7, 8},{3, 4, 6, 7, 8}))
+list_of_predefined_bs_options.append(({3, 5, 6, 7, 8},{5, 6, 7, 8}))
+list_of_predefined_bs_options.append(({4, 5, 6, 7, 8},{2, 3, 4, 5}))
+list_of_predefined_bs_options.append(({3},{1, 2, 3, 4, 5, 6, 7, 8}))
+list_of_predefined_bs_options.append(({3, 6, 7, 8},{2, 3, 5, 6, 7, 8}))
+list_of_predefined_bs_options.append(({1},{1}))
+
+
+BIRTH = any
+SURVIVAL = ...
+DEATH = None
+CONSENSUS_OPTIONS = list_of_consensus_options
+BIRTH_RULE_OPTIONS = list_of_birth_rule_options
+SURVIVAL_RULE_OPTIONS = list_of_survival_rule_options
+
 d_CHOSEN_MULTIVERSE = CHOSEN_MULTIVERSE = ''
-d_SCALE = SCALE = 4 # Number of pixels per cell edge.
-d_NUMBER_OF_UNIVERSES = NUMBER_OF_UNIVERSES = 5
-d_NUMBER_OF_START_THINGS = NUMBER_OF_START_THINGS = 20
-d_CELL_RADIUS_AUGMENTATION = CELL_RADIUS_AUGMENTATION = 0
+
+d_CENSUS_RESOLUTION = CENSUS_RESOLUTION = CONSENSUS_OPTIONS[0]
+d_BIRTH_RULE = BIRTH_RULE = BIRTH_RULE_OPTIONS[0]
+d_SURVIVAL_RULE = SURVIVAL_RULE = SURVIVAL_RULE_OPTIONS[0]
+
+d_SCALE = SCALE = 2 # Number of pixels per cell edge.
+d_NUMBER_OF_UNIVERSES = NUMBER_OF_UNIVERSES = 6
+d_NUMBER_OF_START_THINGS = NUMBER_OF_START_THINGS = 12
+d_CELL_RADIUS_AUGMENTATION = CELL_RADIUS_AUGMENTATION = 1
 d_SIDES_PER_NEIGHBORHOOD = SIDES_PER_NEIGHBORHOOD = 4
 d_NEIGHBORHOODS_INCLUDE_CORNERS = NEIGHBORHOODS_INCLUDE_CORNERS = True
 d_FRAME_RATE_TEST = FRAME_RATE_TEST = True
 d_ROCKIT_SPEED = ROCKIT_SPEED = 13
 d_PERCENTAGE_OF_TILT_TO_START_WITH = PERCENTAGE_OF_TILT_TO_START_WITH = 20
 d_MAXIMUM_TILT = MAXIMUM_TILT = 10
+d_PROCESS_RED_SEPARATELY = PROCESS_RED_SEPARATELY = False
+d_PROCESS_GREEN_SEPARATELY = PROCESS_GREEN_SEPARATELY = False
+d_PROCESS_BLUE_SEPARATELY = PROCESS_BLUE_SEPARATELY = False
+d_CPU_BIRTHS = CPU_BIRTHS = 15
+d_RED_DIES_BLUE = RED_DIES_BLUE = False
+d_RED_DIES_GREEN = RED_DIES_GREEN = False
+d_GREEN_DIES_RED = GREEN_DIES_RED = False
+d_GREEN_DIES_BLUE = GREEN_DIES_BLUE = False
+d_BLUE_DIES_GREEN = BLUE_DIES_GREEN = False
+d_BLUE_DIES_RED = BLUE_DIES_RED = False
 d_COLOR_BY_UNIVERSE = COLOR_BY_UNIVERSE = 7
 d_COLOR_BY_ITEM = COLOR_BY_ITEM = 5
 d_COLOR_BY_CELL = COLOR_BY_CELL = 2
@@ -44,9 +218,10 @@ d_RANDOM_START_COLORS = RANDOM_START_COLORS = 3
 d_COLOR_DESATURATION = COLOR_DESATURATION = 0
 d_ALLOW_SURVIVAL_MUTATION = ALLOW_SURVIVAL_MUTATION = False
 d_RANDOM_PLACEMENT = RANDOM_PLACEMENT = False
+d_INITIAL_ITEM_ROTATION = INITIAL_ITEM_ROTATION = 45
 d_U_BLINKER = U_BLINKER = False
-d_U_RPENT = U_RPENT = False
-d_U_GLIDER0 = U_GLIDER0 = True
+d_U_RPENT = U_RPENT = True
+d_U_GLIDER0 = U_GLIDER0 = False
 d_U_GLIDER1 = U_GLIDER1 = True
 d_U_ACORN = U_ACORN = False
 d_U_TENCELL = U_TENCELL = False
@@ -54,8 +229,45 @@ d_U_TPENT = U_TPENT = False
 d_U_QPENT = U_QPENT = False
 d_U_OPENT = U_OPENT = False
 d_U_XPENT = U_XPENT = False
+constdict1 = {'CENSUS_RESOLUTION':CENSUS_RESOLUTION, 'BIRTH_RULE':BIRTH_RULE, 'SURVIVAL_RULE':SURVIVAL_RULE, 'NUMBER_OF_UNIVERSES':NUMBER_OF_UNIVERSES}
+safe_eval_dict.update(constdict1)
+constdict2 = {'BIRTH':BIRTH, 'SURVIVAL':SURVIVAL, 'DEATH':DEATH}
+safe_eval_dict.update(constdict2)
+SAFE_EVAL = safe_eval_dict
 HORIZONTAL_BORDER_PERCENTAGE = 25
 VERTICAL_BORDER_PERCENTAGE = 25
+def lol(*args):
+    reflatten = False
+    la = len(args)
+    if la == 1:
+        arg = args[0]
+        if isinstance(arg, str):
+            return tuple(arg)
+        elif not hasattr(arg,'__len__') or not hasattr(arg,'__iter__'):
+            return tuple(arg)
+    elif la == 0:
+        return args
+    rv = []
+    for arg in args:
+        if hasattr(arg,'__len__') or hasattr(arg,'__iter__'):
+            if isinstance(arg, str):
+                rv.append([arg])
+            else:
+                rv.append(list(arg))
+                reflatten = True
+        else:
+            rv.append([arg])
+    if reflatten:
+        rv = lol(*itertools.chain(*rv))
+    return rv
+
+def flatten(*args):
+    rv = lol(*args)
+    return tuple(r[0] for r in rv)
+
+def flatset(*args):
+    return set(flatten(args))
+
 def iof(intorfloat):
     intorfloat = decimal.Decimal(intorfloat)
     ioiof = int(intorfloat)
@@ -116,6 +328,19 @@ row = []
 row.append(sg.Combo(values = ['default', 0, *other_universes , 'random'], default_value = f'{CHOSEN_MULTIVERSE}', size = (49,19), enable_events = True, key = 'CHOSEN_MULTIVERSE'))
 row.append(sg.Button('Apply change of multiverse!'))
 layout.append(row)
+row = []
+row.append(sg.Text(f"Algorithm for resolving multiverse neighbor count disagreement:"))
+row.append(sg.Combo(values = CONSENSUS_OPTIONS, default_value = f'{CENSUS_RESOLUTION}', size = (80,19), enable_events = True, key = 'CENSUS_RESOLUTION'))
+layout.append(row)
+row = []
+row.append(sg.Text(f"Birth rule: (Possible number of neighbors with which a cell can be born.)"))
+row.append(sg.Combo(values = BIRTH_RULE_OPTIONS, default_value = f'{BIRTH_RULE}', size = (69,19), enable_events = True, key = 'BIRTH_RULE'))
+layout.append(row)
+row = []
+row.append(sg.Text(f"Survival rule: (Possible number of neighbors with which a cell can survive.)"))
+row.append(sg.Combo(values = SURVIVAL_RULE_OPTIONS, default_value = f'{SURVIVAL_RULE}', size = (69,19), enable_events = True, key = 'SURVIVAL_RULE'))
+layout.append(row)
+
 layout.append([sg.Text(f"Display at what scale?"), sg.Input(f'{SCALE}',key = 'SCALE')])
 layout.append([sg.Text(f"Number of universes?"), sg.Input(f'{NUMBER_OF_UNIVERSES}', key = 'NUMBER_OF_UNIVERSES')])
 layout.append([sg.Text(f"Number of things to start with?"), sg.Input(f'{NUMBER_OF_START_THINGS}', key = 'NUMBER_OF_START_THINGS')])
@@ -133,14 +358,36 @@ layout.append(row)
 layout.append([sg.Text(f"Change tilt at what speed?"), sg.Input(f'{ROCKIT_SPEED}', key = 'ROCKIT_SPEED')])
 row = []
 row.append(sg.Text(f"Start with what percentage of maximum tilt?"))
-row.append(sg.Slider(range = (-100, 100), size = (50,10), default_value = PERCENTAGE_OF_TILT_TO_START_WITH, resolution = 1, orientation = 'h', key = 'PERCENTAGE_OF_TILT_TO_START_WITH'))
+row.append(sg.Slider(range = (-100, 100), size = (70,10), default_value = PERCENTAGE_OF_TILT_TO_START_WITH, resolution = 1, orientation = 'h', key = 'PERCENTAGE_OF_TILT_TO_START_WITH'))
 layout.append(row)
 
-layout.append([sg.Text(f"How many degrees maximum tilt?")])
-layout.append([sg.Slider(range = (-360, 360), size = (90,10), default_value = MAXIMUM_TILT, resolution = 1, orientation = 'h', key = 'MAXIMUM_TILT')])
+row = []
+row.append(sg.Text(f"How many degrees maximum tilt?"))
+row.append(sg.Slider(range = (-360, 360), size = (80,10), default_value = MAXIMUM_TILT, resolution = 1, orientation = 'h', key = 'MAXIMUM_TILT'))
+layout.append(row)
+row = []
+row.append(sg.Text(f"Color separation settings: ", tooltip = 'Turning any of these on causes the red, green or blue color channels of each cell to be treated as in their own world of only that color.'))
+row.append(sg.Checkbox(text = f"Process red separately.", tooltip = f"Turn this on to treat the red component of each cell like a separate cell in a parallen universe.", default = PROCESS_RED_SEPARATELY, key = 'PROCESS_RED_SEPARATELY'))
+row.append(sg.Checkbox(text = f"Process green separately.", tooltip = f"Turn this on to treat the green component of each cell like a separate cell in a parallen universe.", default = PROCESS_GREEN_SEPARATELY, key = 'PROCESS_GREEN_SEPARATELY'))
+row.append(sg.Checkbox(text = f"Process blue separately.", tooltip = f"Turn this on to treat the blue component of each cell like a separate cell in a parallen universe.", default = PROCESS_BLUE_SEPARATELY, key = 'PROCESS_BLUE_SEPARATELY'))
+layout.append(row)
+row = []
+tooltip = f"When a cell's parents are all from the same universe, by what percentage should its birth color be set based on which universe?"
+row.append(sg.Text(f"Percentage of birth color to base on universe of origin?", tooltip = tooltip))
+row.append(sg.Slider(range = (0, 100), size = (50,10), default_value = CPU_BIRTHS, tooltip = tooltip, resolution = 1, orientation = 'h', key = 'CPU_BIRTHS'))
+layout.append(row)
               
 row = []
-row.append(sg.Text(f"Color settings: "))
+row.append(sg.Text(f"Colorful death settings: "))
+row.append(sg.Checkbox(text = f"Red dies blue.", tooltip = f"Dissipate the red color channel to the blue color channel upon cell death.", default = RED_DIES_BLUE, key = 'RED_DIES_BLUE'))
+row.append(sg.Checkbox(text = f"Red dies green.", tooltip = f"Dissipate the red color channel to the green color channel upon cell death.", default = RED_DIES_GREEN, key = 'RED_DIES_GREEN'))
+row.append(sg.Checkbox(text = f"Green dies red.", tooltip = f"Dissipate the green color channel to the red color channel upon cell death.", default = GREEN_DIES_RED, key = 'GREEN_DIES_RED'))
+row.append(sg.Checkbox(text = f"Green dies blue.", tooltip = f"Dissipate the green color channel to the blue color channel upon cell death.", default = GREEN_DIES_BLUE, key = 'GREEN_DIES_BLUE'))
+row.append(sg.Checkbox(text = f"Blue dies green.", tooltip = f"Dissipate the blue color channel to the green color channel upon cell death.", default = BLUE_DIES_GREEN, key = 'BLUE_DIES_GREEN'))
+row.append(sg.Checkbox(text = f"Blue dies red.", tooltip = f"Dissipate the blue color channel to the red color channel upon cell death.", default = BLUE_DIES_RED, key = 'BLUE_DIES_RED'))
+layout.append(row)
+row = []
+row.append(sg.Text(f"Initial placement color settings: "))
 row.append(sg.Spin(list(range(10)), initial_value = COLOR_BY_UNIVERSE, tooltip = f"What portion of initial coloration should be per universe?", key = 'COLOR_BY_UNIVERSE'))
 row.append(sg.Spin(list(range(10)), initial_value = COLOR_BY_ITEM, tooltip = f"What portion of initial coloration should be per item?", key = 'COLOR_BY_ITEM'))
 row.append(sg.Spin(list(range(10)), initial_value = COLOR_BY_CELL, tooltip = f"What portion of initial coloration should be per cell?", key = 'COLOR_BY_CELL'))
@@ -149,7 +396,9 @@ row.append(sg.Spin(list(range(10)), initial_value = COLOR_DESATURATION, tooltip 
 row.append(sg.Checkbox(text = f"Allow survival color mutation?", tooltip = f"(Allow non-random algorythmic color mutation on survival?)", default = ALLOW_SURVIVAL_MUTATION, key = 'ALLOW_SURVIVAL_MUTATION'))
 layout.append(row)
 
-layout.append([sg.Text(f"Randomize item placement by what percentage?"), sg.Slider(range = (0, 100), default_value = RANDOM_PLACEMENT, resolution = 0.5, orientation = 'h', key = 'RANDOM_PLACEMENT')])
+layout.append([sg.Text(f"Randomize item placement by what percentage?"), sg.Slider(range = (0, 100), size = (50,10), default_value = RANDOM_PLACEMENT, resolution = 1, orientation = 'h', key = 'RANDOM_PLACEMENT')])
+
+
 row = []
 row.append(sg.Checkbox(text = f"blinker", tooltip = f"Allow placement of blinker?", default = U_BLINKER, key = 'U_BLINKER'))
 row.append(sg.Checkbox(text = f"glider [A]", tooltip = f"Allow placement of glider [A]?", default = U_GLIDER0, key = 'U_GLIDER0'))
@@ -189,10 +438,12 @@ while event not in [sg.WINDOW_CLOSED, 'Quit', 'Begin']:
         pass
     if event in ['CHOSEN_MULTIVERSE', 'Apply change of multiverse!']:
         vcm = values['CHOSEN_MULTIVERSE']
-        print(f'GOT HERE! {vcm}')
         seed = seed_from_string(vcm)
         if CHOSEN_MULTIVERSE == 'default':
             CHOSEN_MULTIVERSE = d_CHOSEN_MULTIVERSE
+            CENSUS_RESOLUTION = d_CENSUS_RESOLUTION
+            BIRTH_RULE = d_BIRTH_RULE
+            SURVIVAL_RULE = d_SURVIVAL_RULE
             SCALE = d_SCALE
             NUMBER_OF_UNIVERSES = d_NUMBER_OF_UNIVERSES
             NUMBER_OF_START_THINGS = d_NUMBER_OF_START_THINGS
@@ -203,6 +454,16 @@ while event not in [sg.WINDOW_CLOSED, 'Quit', 'Begin']:
             ROCKIT_SPEED = d_ROCKIT_SPEED
             PERCENTAGE_OF_TILT_TO_START_WITH = d_PERCENTAGE_OF_TILT_TO_START_WITH
             MAXIMUM_TILT = d_MAXIMUM_TILT
+            PROCESS_RED_SEPARATELY = d_PROCESS_RED_SEPARATELY
+            PROCESS_GREEN_SEPARATELY = d_PROCESS_GREEN_SEPARATELY
+            PROCESS_BLUE_SEPARATELY = d_PROCESS_BLUE_SEPARATELY
+            CPU_BIRTHS = d_CPU_BIRTHS
+            RED_DIES_BLUE = d_RED_DIES_BLUE
+            RED_DIES_GREEN = d_RED_DIES_GREEN
+            GREEN_DIES_RED = d_GREEN_DIES_RED
+            GREEN_DIES_BLUE = d_GREEN_DIES_BLUE
+            BLUE_DIES_GREEN = d_BLUE_DIES_GREEN
+            BLUE_DIES_RED = d_BLUE_DIES_RED
             COLOR_BY_UNIVERSE = d_COLOR_BY_UNIVERSE
             COLOR_BY_ITEM = d_COLOR_BY_ITEM
             COLOR_BY_CELL = d_COLOR_BY_CELL
@@ -224,6 +485,9 @@ while event not in [sg.WINDOW_CLOSED, 'Quit', 'Begin']:
         else:
             SCALE = random.randint(1,4)
             NUMBER_OF_UNIVERSES = random.randint(1, random.randint(1, 30 // SCALE))
+            CENSUS_RESOLUTION = random.choice((random.choice(CONSENSUS_OPTIONS), CONSENSUS_OPTIONS[0]))
+            BIRTH_RULE = random.choice((random.choice(BIRTH_RULE_OPTIONS), BIRTH_RULE_OPTIONS[0]))
+            SURVIVAL_RULE = random.choice((random.choice(SURVIVAL_RULE_OPTIONS), SURVIVAL_RULE_OPTIONS[0]))
             NUMBER_OF_START_THINGS = random.randint(1, random.randint(1, 30 // SCALE))
             CELL_RADIUS_AUGMENTATION = random.choice((True, False))
             SIDES_PER_NEIGHBORHOOD = 4 + random.choice([0] * 4 + [1, -1, -2, -3]) + random.choice([0] * 4 + list(range(5))) + random.choice([0] * 7 + list(range(4)))
@@ -233,6 +497,18 @@ while event not in [sg.WINDOW_CLOSED, 'Quit', 'Begin']:
             ROCKIT_SPEED = random.randint(1, int(d_ROCKIT_SPEED * 2.5))
             PERCENTAGE_OF_TILT_TO_START_WITH = random.choice((True, False)) * random.randint(-99, 99)
             MAXIMUM_TILT = min(-360,max(360,random.choice((True, False)) * random.randint(int(-d_MAXIMUM_TILT * 2.5), int(d_MAXIMUM_TILT * 2.5))))
+            PROCESS_RED_SEPARATELY = random.choice([True] + 7 * [False])
+            PROCESS_GREEN_SEPARATELY = random.choice([True] + 7 * [False])
+            PROCESS_BLUE_SEPARATELY = random.choice([True] + 7 * [False])
+            CPU_BIRTHS = random.choice((True, False)) * 50 + random.randint(-50,50)
+
+            RED_DIES_BLUE = random.choice([True] * (PROCESS_BLUE_SEPARATELY * 2 + 1) + 15 * [False])
+            RED_DIES_GREEN = random.choice([True] * (PROCESS_GREEN_SEPARATELY * 2 + 1) + 15 * [False])
+            GREEN_DIES_RED = random.choice([True] * (PROCESS_RED_SEPARATELY * 2 + 1) + 15 * [False])
+            GREEN_DIES_BLUE = random.choice([True] * (PROCESS_BLUE_SEPARATELY * 2 + 1) + 15 * [False])
+            BLUE_DIES_GREEN = random.choice([True] * (PROCESS_GREEN_SEPARATELY * 2 + 1) + 15 * [False])
+            BLUE_DIES_RED = random.choice([True] * (PROCESS_RED_SEPARATELY * 2 + 1) + 15 * [False])
+
             COLOR_BY_UNIVERSE = random.choice((True, False)) * random.randint(0,9)
             COLOR_BY_ITEM = random.choice((True, False)) * random.randint(0,9)
             COLOR_BY_CELL = random.choice((True, False)) * random.randint(0,9)
@@ -254,18 +530,22 @@ while event not in [sg.WINDOW_CLOSED, 'Quit', 'Begin']:
             U_XPENT = random.choice((True, False))
         PREVIOUSLY_CHOSEN_MULTIVERSE = CHOSEN_MULTIVERSE
         for key, val in values.items():
-            tmpv = eval(str(key))
-            window[key].update(tmpv)
+            try:
+                tmpv = eval(str(key))
+                window[key].update(tmpv)
+            except:
+                pass
     elif event == 'Begin':
         CHOSEN_MULTIVERSE = PREVIOUSLY_CHOSEN_MULTIVERSE
         window['CHOSEN_MULTIVERSE'].update(value = CHOSEN_MULTIVERSE)
     else:
         values = None
 window.close()
-
-print(type(values))
 if values == None:
     CHOSEN_MULTIVERSE = d_CHOSEN_MULTIVERSE
+    CENSUS_RESOLUTION = d_CENSUS_RESOLUTION
+    BIRTH_RULE = d_BIRTH_RULE
+    SURVIVAL_RULE = d_SURVIVAL_RULE
     SCALE = d_SCALE
     NUMBER_OF_UNIVERSES = d_NUMBER_OF_UNIVERSES
     NUMBER_OF_START_THINGS = d_NUMBER_OF_START_THINGS
@@ -276,6 +556,16 @@ if values == None:
     ROCKIT_SPEED = d_ROCKIT_SPEED
     PERCENTAGE_OF_TILT_TO_START_WITH = d_PERCENTAGE_OF_TILT_TO_START_WITH
     MAXIMUM_TILT = d_MAXIMUM_TILT
+    PROCESS_RED_SEPARATELY = d_PROCESS_RED_SEPARATELY
+    PROCESS_GREEN_SEPARATELY = d_PROCESS_GREEN_SEPARATELY
+    PROCESS_BLUE_SEPARATELY = d_PROCESS_BLUE_SEPARATELY
+    CPU_BIRTHS = d_CPU_BIRTHS
+    RED_DIES_BLUE = d_RED_DIES_BLUE
+    RED_DIES_GREEN = d_RED_DIES_GREEN
+    GREEN_DIES_RED = d_GREEN_DIES_RED
+    GREEN_DIES_BLUE = d_GREEN_DIES_BLUE
+    BLUE_DIES_GREEN = d_BLUE_DIES_GREEN
+    BLUE_DIES_RED = d_BLUE_DIES_RED
     COLOR_BY_UNIVERSE = d_COLOR_BY_UNIVERSE
     COLOR_BY_ITEM = d_COLOR_BY_ITEM
     COLOR_BY_CELL = d_COLOR_BY_CELL
@@ -294,6 +584,33 @@ if values == None:
     U_OPENT = d_U_OPENT
     U_XPENT = d_U_XPENT
 else:
+    CENSUS_RESOLUTION = values['CENSUS_RESOLUTION']
+    try:
+        btmp = set(item for item in list(eval(values['BIRTH_RULE'],{'__builtins__':pas},SAFE_EVAL)))
+        tmp = []
+        for bt in btmp:
+            try:
+                bt = round(abs(bt))
+                tmp.append(bt)
+            except:
+                pass
+        BIRTH_RULE = set(tmp)
+        BIRTH_RULE.discard(0)
+    except:
+        pass
+    try:
+        btmp = set(item for item in list(eval(values['SURVIVAL_RULE'],{'__builtins__':pas},SAFE_EVAL)))
+        tmp = []
+        for bt in btmp:
+            try:
+                bt = round(abs(bt))
+                tmp.append(bt)
+            except:
+                pass
+        SURVIVAL_RULE = set(tmp)
+        SURVIVAL_RULE.discard(0)
+    except:
+        pass
     SCALE = iof(values['SCALE'])
     NUMBER_OF_UNIVERSES = round(float(values['NUMBER_OF_UNIVERSES']))
     NUMBER_OF_START_THINGS = round(float(values['NUMBER_OF_START_THINGS']))
@@ -304,6 +621,18 @@ else:
     ROCKIT_SPEED = iof(values['ROCKIT_SPEED'])
     PERCENTAGE_OF_TILT_TO_START_WITH = iof(values['PERCENTAGE_OF_TILT_TO_START_WITH'])
     MAXIMUM_TILT = iof(values['MAXIMUM_TILT'])
+    PROCESS_RED_SEPARATELY = bool(values['PROCESS_RED_SEPARATELY'])
+    PROCESS_GREEN_SEPARATELY = bool(values['PROCESS_GREEN_SEPARATELY'])
+    PROCESS_BLUE_SEPARATELY = bool(values['PROCESS_BLUE_SEPARATELY'])
+    CPU_BIRTHS = round(float(values['CPU_BIRTHS']))
+
+    RED_DIES_BLUE = bool(values['RED_DIES_BLUE'])
+    RED_DIES_GREEN = bool(values['RED_DIES_GREEN'])
+    GREEN_DIES_RED = bool(values['GREEN_DIES_RED'])
+    GREEN_DIES_BLUE =bool(values['GREEN_DIES_BLUE'])
+    BLUE_DIES_GREEN = bool(values['BLUE_DIES_GREEN'])
+    BLUE_DIES_RED = bool(values['BLUE_DIES_RED'])
+
     COLOR_BY_UNIVERSE = iof(values['COLOR_BY_UNIVERSE'])
     COLOR_BY_ITEM = iof(values['COLOR_BY_ITEM'])
     COLOR_BY_CELL = iof(values['COLOR_BY_CELL'])
@@ -311,6 +640,8 @@ else:
     COLOR_DESATURATION = bool(values['COLOR_DESATURATION'])
     if COLOR_BY_UNIVERSE+COLOR_BY_ITEM+COLOR_BY_CELL+RANDOM_START_COLORS+COLOR_DESATURATION == 0:
         COLOR_DESATURATION = 1
+    ALLOW_SURVIVAL_MUTATION = bool(values['ALLOW_SURVIVAL_MUTATION'])
+    RANDOM_PLACEMENT = iof(values['RANDOM_PLACEMENT'])
     U_BLINKER = bool(values['U_BLINKER'])
     U_RPENT = bool(values['U_RPENT'])
     U_GLIDER0 = bool(values['U_GLIDER0'])
@@ -361,6 +692,8 @@ TL_DS = ((0, 0), pygame.Rect(MW - BS0 - BS0, MH - BS1 - BS1, BS0, BS1))
 print(f"Working internal simulation grid size, WS == {WS}. To exit, press and hold the Escape key while viewing the graphics screen.")
 def hrgb(h):
     return [round(i * 255) for i in colorsys.hsv_to_rgb(h,1,.75)]
+def universal_color(universe_number):
+    return hrgb(universe_number / NUMBER_OF_UNIVERSES)
 def unique_list(m):
     return list(map(list,set(map(tuple,m))))
 class ColorGrid(object):
@@ -599,7 +932,7 @@ def initWorld(): #Initialize and draw some stuff to start with.
         clusters.append(((0,0),))
     number_of_clusters = random.randint(7,11)
     number_of_clusters = NUMBER_OF_START_THINGS
-    n_shape_number = random.randint(0, len(neighborhood_shapes) - 1)
+    n_shape_number = random.randint(0, NUMBER_OF_UNIVERSES - 1)
     cell_number = 0
     if min(number_of_clusters, NUMBER_OF_UNIVERSES) <= 0:
         cellhuedivisor = max(number_of_clusters, NUMBER_OF_UNIVERSES)
@@ -608,10 +941,15 @@ def initWorld(): #Initialize and draw some stuff to start with.
     for cluster_number in range(number_of_clusters):
         cluster = random.choice(clusters)
 
-        direction_to_point = cluster_number
-        crude_direction = 3 - direction_to_point // len(neighborhood_shapes)
-        fine_direction = len(neighborhood_shapes) - direction_to_point % len(neighborhood_shapes) - 1
-        n_shape_number = fine_direction
+
+        item_rotation_offset = INITIAL_ITEM_ROTATION * number_of_clusters / -360
+        direction_to_point = int(((cluster_number + item_rotation_offset) * NUMBER_OF_UNIVERSES * 4 / number_of_clusters) % ( NUMBER_OF_UNIVERSES * 4))
+        crude_direction = 3 - direction_to_point // NUMBER_OF_UNIVERSES
+        universe_number = NUMBER_OF_UNIVERSES - direction_to_point % NUMBER_OF_UNIVERSES - 1
+        n_shape_number = int(universe_number)
+        if universe_number < 0:
+            exit()
+
 
 
         cluster = clusters[cluster_number % len(clusters)]
@@ -647,12 +985,11 @@ def initWorld(): #Initialize and draw some stuff to start with.
                 rc[random.choice((0,2))] = rc[random.choice((0,2))] | 128
             color_choices.append(rc)
         rns = neighborhood_shapes[n_shape_number]
-        neighborhood_color = hrgb(n_shape_number / len(neighborhood_shapes))
-        n_shape_number += 1
-        n_shape_number %= len(neighborhood_shapes)
+        neighborhood_color = universal_color(universe_number)
 
         dsx = random.randint(WS[0]*2//7,WS[0]*5//7)
         dsy = random.randint(WS[1]*2//7,WS[1]*5//7)
+
         nsn = mpmath.pi * 2 * cluster_number / number_of_clusters
 
 
@@ -667,6 +1004,7 @@ def initWorld(): #Initialize and draw some stuff to start with.
             movy = int(mpmath.cos(nsn) * WS[1] / 4.05)
         destx = WS[0]//2 + movx
         desty = WS[1]//2 + movy
+
         destx = round((destx * (100 - RANDOM_PLACEMENT) + dsx * RANDOM_PLACEMENT) / 100)
         desty = round((desty * (100 - RANDOM_PLACEMENT) + dsy * RANDOM_PLACEMENT) / 100)
         if crude_direction == 0:
@@ -767,8 +1105,12 @@ def baby_maker(cell_color, potential_mates):
         if sum(mate) < 48:
             mate = [mt+32 for mt in mate]
     return mate
+
     
+
     
+
+
 def playGame():
     global life_checksum
     global birth_count
@@ -794,20 +1136,32 @@ def playGame():
 
 
     cmms = mirrored_surface.copy()
+
     cmms.blit(cmms, (0,0), special_flags=pygame.BLEND_RGBA_ADD)
     cmms.blit(cmms, (0,0), special_flags=pygame.BLEND_RGBA_ADD)
     cmms.blit(cmms, (0,0), special_flags=pygame.BLEND_RGBA_ADD)
     cmms.blit(cmms, (0,0), special_flags=pygame.BLEND_RGBA_ADD)
     cmms.blit(cmms, (0,0), special_flags=pygame.BLEND_RGBA_ADD)
     cmms.blit(cmms, (0,0), special_flags=pygame.BLEND_RGBA_ADD)
+
+
     coms = pygame.Surface(MWS).convert(8)
 
     palette = [[1,1,1] for _ in range(256)]
     palette[0] = [0,0,0]
+
+    for r in [not PROCESS_RED_SEPARATELY, 1]:
+        for g in [not PROCESS_GREEN_SEPARATELY, 1]:
+            for b in [not PROCESS_BLUE_SEPARATELY, 1]:
+                palette[r + 2 * g + 4 * b] = [r,g,b]
+                palette[8 * r + 16 * g + 32 * b] = [not r, not g, not b]
+
     coms.set_palette(palette)
     coms.blit(cmms,(0,0))
-    surface_per_universe = [pygame.Surface(MWS) for _ in range(len(neighborhood_shapes))]
-    for universe_number in range(len(neighborhood_shapes)):
+
+    surface_per_universe = [pygame.Surface(MWS) for _ in range(NUMBER_OF_UNIVERSES)]
+
+    for universe_number in range(NUMBER_OF_UNIVERSES):
         nshape = neighborhood_shapes[universe_number]
         unisurface = surface_per_universe[universe_number]
         for location in nshape:
@@ -817,6 +1171,11 @@ def playGame():
     for n in range(len(surface_per_universe)):
         surface_per_universe[n].blit(surfa[n],(-BS0,-BS1))
     
+
+
+
+
+
     coms = pygame.Surface(WS)
     for uniserf in surface_per_universe:
         coms.blit(uniserf, (0,0), special_flags=pygame.BLEND_RGBA_ADD)
@@ -833,47 +1192,98 @@ def playGame():
     birth_count = 0
     death_count = 0
     survival_count = 0
+
+
+    
+
     for cell_location in [(x, y) for x in range(0, WS[0]) for y in range(0, WS[1])]:
-        totalistics = [unisurface.get_at(cell_location)[0] for unisurface in surface_per_universe]
-        totalset = set(totalistics)
-        totalset.discard(0)
-        ltot = len(totalset)
-        life_checksum *= 1.0001 + ltot
-        if life_checksum > POTENTIAL_CELL_COUNT:
-            life_checksum -= (POTENTIAL_CELL_COUNT - 1)
-        if ltot != 1:
-            future_buffer[cell_location] = [0,0,0]
-            continue
-        effective_neighbor_count = totalset.pop()
-
-
         cell_color = process_buffer[cell_location]
         x,y = cell_location
-        if cell_color == [0,0,0]:
-            if effective_neighbor_count == 2:
-                new_cell_color = [0,0,0]
-            elif effective_neighbor_count == 3:
-                neigh_shapes = tuple(tuple(tuple((x+dst[0], y+dst[1])) for dst in nbh) for nbh in neighborhood_shapes)
-                sh_neighborhoods =[[process_buffer[address] for address in neigh_shapes[i]] for i in range(len(neigh_shapes))]
-                new_cell_color = baby_maker(cell_color, sh_neighborhoods)
-                if new_cell_color != [0,0,0]:
-                    birth_count += 1
-            else: # stay unalive
-                new_cell_color = [0,0,0]
-        else:
-            life_checksum += 1
-            if effective_neighbor_count == 2:
-                survival_count += 1
-                new_cell_color = mutateColor(cell_color)
-            elif effective_neighbor_count == 3:
-                survival_count += 1
-                new_cell_color = mutateColor(cell_color)
-            else: # death
-                new_cell_color = [0,0,0]
-                death_count += 1
-        future_buffer[cell_location] = new_cell_color
+        new_cell_color = [0,0,0]
+        channel_groups = [slice(0,3)]
+        separate = PROCESS_RED_SEPARATELY + PROCESS_GREEN_SEPARATELY + PROCESS_BLUE_SEPARATELY
+        if separate > 1:
+            channel_groups = [slice(0,1),slice(1,2),slice(2,3)]
+        elif separate == 1:
+            if PROCESS_RED_SEPARATELY:
+                channel_groups = [slice(0,1),slice(1,3)]
+            elif PROCESS_GREEN_SEPARATELY:
+                channel_groups = [slice(1,2),slice(0,3,2)]
+            elif PROCESS_BLUE_SEPARATELY:
+                channel_groups = [slice(2,3),slice(0,2)]
+        cell_color = process_buffer[cell_location]
+        backup_of_cell_color = cell_color
+        full_new_cell_color = new_cell_color
+        for channels_to_process in channel_groups:
+            totalistics = [unisurface.get_at(cell_location)[channels_to_process][0] for unisurface in surface_per_universe]
+            totalset = set(totalistics)
+            totalset.discard(0)
+            census = totalset
+            gdic = {'__builtins__':None}
+            if len(census) == 0:
+                census = 0
+            elif len(census) == 1:
+                census = census.pop()
+            else:
+                tmpdict = {'census':census, 'CENSUS_RESOLUTION':CENSUS_RESOLUTION}
+                SAFE_EVAL.update(tmpdict)
+                census = eval(CENSUS_RESOLUTION,gdic,SAFE_EVAL)
+            ltot = len(totalset)
+            life_checksum *= 1.0001 + ltot
+            if life_checksum > POTENTIAL_CELL_COUNT:
+                life_checksum -= (POTENTIAL_CELL_COUNT - 1)
+            cell_color = backup_of_cell_color[channels_to_process]
+            new_cell_color = full_new_cell_color[channels_to_process]
+            if cell_color == [0,0,0][channels_to_process]:
+                if census in BIRTH_RULE or census == BIRTH:
+                    neigh_shapes = tuple(tuple(tuple((x+dst[0], y+dst[1])) for dst in nbh) for nbh in neighborhood_shapes)
+                    sh_neighborhoods =[[process_buffer[address] for address in neigh_shapes[i]] for i in range(len(neigh_shapes))]
+                    temp_new_cell_color = baby_maker(backup_of_cell_color, sh_neighborhoods)
+                    if temp_new_cell_color[channels_to_process] == [0,0,0][channels_to_process]:
+                        temp_new_cell_color = [temp_new_cell_color[1], temp_new_cell_color[2], temp_new_cell_color[0]]
+                        if temp_new_cell_color[channels_to_process] == [0,0,0][channels_to_process]:
+                            temp_new_cell_color = [temp_new_cell_color[1], temp_new_cell_color[2], temp_new_cell_color[0]]
+                            if temp_new_cell_color[channels_to_process] == [0,0,0][channels_to_process]:
+                                temp_new_cell_color = [255,255,255]
+                    new_cell_color = temp_new_cell_color[channels_to_process]
+
+                    if CPU_BIRTHS:
+                        if totalistics.count(0) == NUMBER_OF_UNIVERSES - 1:
+                            unum = totalistics.index(census)
+                            tmpcolor = universal_color(unum)
+                            new_cell_color = [(new_cell_color[i] * (100-CPU_BIRTHS) + tmpcolor[channels_to_process][i] * CPU_BIRTHS) // 100 for i in range(len([0,0,0][channels_to_process]))]
+                    if new_cell_color != [0,0,0][channels_to_process]:
+                        birth_count += 1
+                else: # stay unalive
+                    new_cell_color = [0,0,0][channels_to_process]
+            else:
+                life_checksum += 1
+                if census in SURVIVAL_RULE or census == SURVIVAL:
+                    survival_count += 1
+                    if ALLOW_SURVIVAL_MUTATION:
+                        temp_new_cell_color = mutateColor(backup_of_cell_color)
+                        if temp_new_cell_color[channels_to_process] == [0,0,0][channels_to_process]:
+                            new_cell_color = backup_of_cell_color[channels_to_process]
+                        else:
+                            new_cell_color = temp_new_cell_color[channels_to_process]
+                    else:
+                        new_cell_color = backup_of_cell_color[channels_to_process]
+
+                else: # death
+                    if RED_DIES_BLUE or RED_DIES_GREEN or GREEN_DIES_RED or GREEN_DIES_BLUE or BLUE_DIES_GREEN or BLUE_DIES_RED:
+                        nccr = (backup_of_cell_color[1] * GREEN_DIES_RED >> 1) + (backup_of_cell_color[2] * BLUE_DIES_RED >> 1)
+                        nccg = (backup_of_cell_color[2] * BLUE_DIES_GREEN >> 1) + (backup_of_cell_color[0] * RED_DIES_GREEN >> 1)
+                        nccb = (backup_of_cell_color[0] * RED_DIES_BLUE >> 1) + (backup_of_cell_color[1] * GREEN_DIES_BLUE >> 1)
+                        new_cell_color = [nccr, nccg, nccb][channels_to_process]
+                    else:
+                        new_cell_color = [0,0,0][channels_to_process]
+                    death_count += 1
+            full_new_cell_color[channels_to_process] = new_cell_color
+        future_buffer[cell_location] = full_new_cell_color
     process_buffer.Surface.blit(future_buffer.Surface, (0,0))
     display_process_buffer()
+
+
 running = True
 life_checksum_deque = collections.deque([],WS[0]+WS[1])
 stagnation_tolerance = 6
