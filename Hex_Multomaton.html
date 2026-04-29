@@ -1531,7 +1531,7 @@
       ctx.fillStyle = "#000";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.imageSmoothingEnabled = el.renderMode.value !== "crisp";
-      const baseScale = Math.max(canvas.width / scene.sceneW, canvas.height / scene.sceneH);
+      const baseScale = Math.min(canvas.width / scene.sceneW, canvas.height / scene.sceneH);
       const scale = baseScale * (Number(el.oversize.value) / 100);
       const angle = (el.wobble.checked ? numInput(el.maxTilt, 10) * Math.sin(sineAngle) : 0) * Math.PI / 180;
       ctx.translate(canvas.width / 2, canvas.height / 2);
