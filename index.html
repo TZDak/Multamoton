@@ -1,0 +1,1224 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bit-Slice Life</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #111416;
+      --panel: #1b2024;
+      --panel-2: #242a30;
+      --line: #38414a;
+      --text: #eef3f6;
+      --muted: #9aa8b3;
+      --accent: #7ad7ff;
+      --accent-2: #ffd166;
+      --danger: #ff6b6b;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    header {
+      border-bottom: 1px solid var(--line);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      background: #15191c;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 650;
+      letter-spacing: 0;
+    }
+
+    .stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 16px;
+      color: var(--muted);
+      font-size: 13px;
+      justify-content: flex-end;
+    }
+
+    .stats strong {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: minmax(280px, 360px) 1fr;
+      min-height: 0;
+    }
+
+    aside {
+      border-right: 1px solid var(--line);
+      background: var(--panel);
+      overflow: auto;
+      padding: 14px;
+    }
+
+    .stage {
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      place-items: center;
+      padding: 14px;
+      background: #0a0c0e;
+    }
+
+    canvas {
+      display: block;
+      width: min(100%, calc((100vh - 96px) * 1.333));
+      max-height: calc(100vh - 96px);
+      aspect-ratio: 4 / 3;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      border: 1px solid #303840;
+      background: #000;
+      cursor: crosshair;
+    }
+
+    section {
+      border-bottom: 1px solid var(--line);
+      padding: 0 0 14px;
+      margin: 0 0 14px;
+    }
+
+    section:last-child {
+      border-bottom: 0;
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    h2 {
+      margin: 0 0 10px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 10px;
+      margin: 9px 0;
+    }
+
+    .check-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 10px 0;
+      color: var(--text);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .sub-option {
+      margin-left: 24px;
+      color: var(--muted);
+    }
+
+    label {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    input, select, button {
+      font: inherit;
+    }
+
+    input[type="number"], input[type="text"], select {
+      width: 82px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 6px 7px;
+      background: #101316;
+      color: var(--text);
+    }
+
+    input[type="range"] {
+      width: 150px;
+      accent-color: var(--accent);
+    }
+
+    input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--accent);
+    }
+
+    button {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 7px 10px;
+      background: var(--panel-2);
+      color: var(--text);
+      cursor: pointer;
+      min-height: 34px;
+    }
+
+    button:hover {
+      border-color: var(--accent);
+    }
+
+    button.primary {
+      background: #123447;
+      border-color: #23627f;
+    }
+
+    button.warn {
+      color: #ffe7e7;
+      border-color: #6e3434;
+      background: #351c1c;
+    }
+
+    .button-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .preset-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+
+    .swatches {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .death-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin: 10px 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .death-grid label {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      color: var(--muted);
+    }
+
+    .swatch {
+      min-height: 36px;
+      padding: 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .swatch::before {
+      content: "";
+      position: absolute;
+      inset: 5px;
+      border-radius: 4px;
+      background: var(--swatch);
+      border: 1px solid rgba(255,255,255,.25);
+    }
+
+    .swatch.active {
+      border-color: var(--accent-2);
+      box-shadow: 0 0 0 1px var(--accent-2) inset;
+    }
+
+    .bits {
+      padding: 8px;
+      min-height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #101316;
+      color: var(--accent-2);
+      font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+      margin-top: 8px;
+    }
+
+    @media (max-width: 860px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+
+      aside {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+        max-height: 46vh;
+      }
+
+      canvas {
+        width: 100%;
+        max-height: 52vh;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Bit-Slice Life</h1>
+    <div class="stats" aria-live="polite">
+      <span>Step <strong id="stepReadout">0</strong></span>
+      <span>Origin <strong id="originReadout">0</strong></span>
+      <span>Nonblack <strong id="nonblackReadout">0</strong></span>
+      <span>White <strong id="whiteReadout">0</strong></span>
+      <span>Live bits <strong id="liveBitsReadout">0</strong></span>
+    </div>
+  </header>
+
+  <main>
+    <aside>
+      <section>
+        <h2>Run</h2>
+        <div class="button-grid">
+          <button id="playPause" class="primary">Play</button>
+          <button id="singleStep">Step</button>
+          <button id="resetOrigin">Reset Phase</button>
+          <button id="clear" class="warn">Clear</button>
+        </div>
+        <div class="row">
+          <label for="speed">Speed</label>
+          <input id="speed" type="range" min="1" max="60" value="12">
+        </div>
+      </section>
+
+      <section>
+        <h2>Bit Window</h2>
+        <div class="row">
+          <label for="bitCount">Bits at a time</label>
+          <input id="bitCount" type="number" min="-24" max="24" value="-8">
+        </div>
+        <div class="row">
+          <label for="advance">Advance</label>
+          <input id="advance" type="number" min="-24" max="24" value="-3">
+        </div>
+        <div class="row">
+          <label for="origin">Origin bit</label>
+          <input id="origin" type="number" min="0" max="23" value="0">
+        </div>
+        <label class="check-row">
+          <input id="interLayer" type="checkbox">
+          Inter-layer interactions
+        </label>
+        <div class="bits" id="bitsReadout"></div>
+        <p class="hint">Negative bit counts walk downward from the origin. Bit 0 is the least significant blue bit; bit 23 is the most significant red bit.</p>
+      </section>
+
+      <section>
+        <h2>Rules & Color</h2>
+        <div class="row">
+          <label for="birthRule">Birth counts</label>
+          <input id="birthRule" type="text" value="3">
+        </div>
+        <div class="row">
+          <label for="survivalRule">Survival counts</label>
+          <input id="survivalRule" type="text" value="2,3">
+        </div>
+        <div class="row">
+          <label for="birthColorMode">Birth color</label>
+          <select id="birthColorMode">
+            <option value="minority" selected>Minority</option>
+            <option value="majority">Majority</option>
+            <option value="or">OR</option>
+            <option value="xor">XOR</option>
+          </select>
+        </div>
+        <div class="death-grid">
+          <label><input id="redDiesGreen" type="checkbox"> R->G</label>
+          <label><input id="redDiesBlue" type="checkbox"> R->B</label>
+          <label><input id="greenDiesRed" type="checkbox"> G->R</label>
+          <label><input id="greenDiesBlue" type="checkbox"> G->B</label>
+          <label><input id="blueDiesRed" type="checkbox"> B->R</label>
+          <label><input id="blueDiesGreen" type="checkbox"> B->G</label>
+        </div>
+        <p class="hint">Color transfer applies when selected bits die. It echoes the Python colorful-death idea, but remains bounded to this 24-bit app.</p>
+      </section>
+
+      <section>
+        <h2>Neighborhood</h2>
+        <div class="row">
+          <label for="universeCount">Universes</label>
+          <input id="universeCount" type="number" min="1" max="24" step="1" value="3">
+        </div>
+        <div class="row">
+          <label for="sidesCount">Sides</label>
+          <input id="sidesCount" type="number" min="3" max="16" step="1" value="4">
+        </div>
+        <div class="row">
+          <label for="radius">Radius</label>
+          <input id="radius" type="number" min="1" max="24" step="1" value="1">
+        </div>
+        <div class="row">
+          <label for="bandVector">Band vector</label>
+          <select id="bandVector"></select>
+        </div>
+        <label class="check-row">
+          <input id="allNeighborhoods" type="checkbox" checked>
+          Use all radius-band neighborhoods
+        </label>
+        <label class="check-row">
+          <input id="pythonNeighborhoods" type="checkbox">
+          Python multiverse geometry
+        </label>
+        <div class="row">
+          <label for="cellSpread">Cell spread</label>
+          <input id="cellSpread" type="range" min="0" max="100" value="70">
+        </div>
+        <div class="row">
+          <label for="angle">Angle</label>
+          <input id="angle" type="number" min="-360" max="360" step="1" value="0">
+        </div>
+        <div class="row">
+          <label for="angleAdvance">Angle advance</label>
+          <input id="angleAdvance" type="number" min="-360" max="360" step="1" value="0">
+        </div>
+        <div class="bits" id="neighborReadout"></div>
+      </section>
+
+      <section>
+        <h2>Presets</h2>
+        <div class="preset-grid">
+          <button data-preset="2,1">2 bits, advance 1</button>
+          <button data-preset="23,1">23 bits, advance 1</button>
+          <button data-preset="-8,-3">-8 bits, advance -3</button>
+          <button data-preset="8,8">8 bits, advance 8</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>Seeds</h2>
+        <div class="button-grid">
+          <button id="glider">Glider Pack</button>
+          <button id="radiusSampler">Radius Sampler</button>
+          <button id="blinker">White Blinker</button>
+          <button id="random">Random</button>
+          <button id="randomColor">Random Color</button>
+        </div>
+        <div class="row">
+          <label for="density">Density</label>
+          <input id="density" type="range" min="1" max="60" value="18">
+        </div>
+        <p class="hint">Glider Pack mixes radius-band vectors when all neighborhoods are active. Radius Sampler always mixes them.</p>
+      </section>
+
+      <section>
+        <h2>Paint</h2>
+        <div class="swatches" id="swatches"></div>
+        <p class="hint">Click or drag on the canvas to paint. Right-click paints black.</p>
+      </section>
+    </aside>
+
+    <div class="stage">
+      <canvas id="life" width="128" height="96"></canvas>
+    </div>
+  </main>
+
+  <script>
+    const BITS = 24;
+    const FULL = 0xFFFFFF;
+    const W = 128;
+    const H = 96;
+
+    const canvas = document.getElementById("life");
+    const ctx = canvas.getContext("2d", { alpha: false });
+    const image = ctx.createImageData(W, H);
+    const sourceCanvas = document.createElement("canvas");
+    sourceCanvas.width = W;
+    sourceCanvas.height = H;
+    const sourceCtx = sourceCanvas.getContext("2d", { alpha: false });
+    const spreadCanvas = document.createElement("canvas");
+    spreadCanvas.width = W;
+    spreadCanvas.height = H;
+    const spreadCtx = spreadCanvas.getContext("2d", { alpha: true });
+
+    let grid = new Uint32Array(W * H);
+    let next = new Uint32Array(W * H);
+    let running = false;
+    let stepNumber = 0;
+    let origin = 0;
+    let lastFrame = 0;
+    let paintValue = FULL;
+
+    const el = {
+      playPause: document.getElementById("playPause"),
+      singleStep: document.getElementById("singleStep"),
+      resetOrigin: document.getElementById("resetOrigin"),
+      clear: document.getElementById("clear"),
+      speed: document.getElementById("speed"),
+      bitCount: document.getElementById("bitCount"),
+      advance: document.getElementById("advance"),
+      origin: document.getElementById("origin"),
+      universeCount: document.getElementById("universeCount"),
+      sidesCount: document.getElementById("sidesCount"),
+      radius: document.getElementById("radius"),
+      bandVector: document.getElementById("bandVector"),
+      allNeighborhoods: document.getElementById("allNeighborhoods"),
+      pythonNeighborhoods: document.getElementById("pythonNeighborhoods"),
+      cellSpread: document.getElementById("cellSpread"),
+      angle: document.getElementById("angle"),
+      angleAdvance: document.getElementById("angleAdvance"),
+      interLayer: document.getElementById("interLayer"),
+      birthRule: document.getElementById("birthRule"),
+      survivalRule: document.getElementById("survivalRule"),
+      birthColorMode: document.getElementById("birthColorMode"),
+      redDiesGreen: document.getElementById("redDiesGreen"),
+      redDiesBlue: document.getElementById("redDiesBlue"),
+      greenDiesRed: document.getElementById("greenDiesRed"),
+      greenDiesBlue: document.getElementById("greenDiesBlue"),
+      blueDiesRed: document.getElementById("blueDiesRed"),
+      blueDiesGreen: document.getElementById("blueDiesGreen"),
+      bitsReadout: document.getElementById("bitsReadout"),
+      neighborReadout: document.getElementById("neighborReadout"),
+      stepReadout: document.getElementById("stepReadout"),
+      originReadout: document.getElementById("originReadout"),
+      nonblackReadout: document.getElementById("nonblackReadout"),
+      whiteReadout: document.getElementById("whiteReadout"),
+      liveBitsReadout: document.getElementById("liveBitsReadout"),
+      density: document.getElementById("density"),
+      swatches: document.getElementById("swatches"),
+      glider: document.getElementById("glider"),
+      radiusSampler: document.getElementById("radiusSampler"),
+      blinker: document.getElementById("blinker"),
+      random: document.getElementById("random"),
+      randomColor: document.getElementById("randomColor")
+    };
+
+    const swatches = [
+      ["White", 0xFFFFFF],
+      ["Red", 0xFF0000],
+      ["Green", 0x00FF00],
+      ["Blue", 0x0000FF],
+      ["Yellow", 0xFFFF00],
+      ["Cyan", 0x00FFFF],
+      ["Magenta", 0xFF00FF],
+      ["Black", 0x000000]
+    ];
+
+    function mod(n, m) {
+      return ((n % m) + m) % m;
+    }
+
+    function normalizeCount(value) {
+      let count = Number.parseInt(value, 10);
+      if (!Number.isFinite(count) || count === 0) count = 1;
+      if (count > BITS) count = BITS;
+      if (count < -BITS) count = -BITS;
+      return count;
+    }
+
+    function normalizeAdvance(value) {
+      let advance = Number.parseInt(value, 10);
+      if (!Number.isFinite(advance)) advance = 1;
+      return advance;
+    }
+
+    function selectedBits() {
+      const count = normalizeCount(el.bitCount.value);
+      const direction = count < 0 ? -1 : 1;
+      const length = Math.abs(count);
+      const bits = [];
+      for (let i = 0; i < length; i++) {
+        bits.push(mod(origin + direction * i, BITS));
+      }
+      return bits;
+    }
+
+    function selectedMask(bits) {
+      let mask = 0;
+      for (const bit of bits) mask |= (1 << bit);
+      return mask >>> 0;
+    }
+
+    function parseRuleSet(text, fallback) {
+      const counts = String(text)
+        .split(/[^0-9]+/)
+        .filter(Boolean)
+        .map(value => Number.parseInt(value, 10))
+        .filter(value => Number.isInteger(value) && value >= 0 && value <= 255);
+      return new Set(counts.length ? counts : fallback);
+    }
+
+    function birthRuleSet() {
+      return parseRuleSet(el.birthRule.value, [3]);
+    }
+
+    function survivalRuleSet() {
+      return parseRuleSet(el.survivalRule.value, [2, 3]);
+    }
+
+    function idx(x, y) {
+      return y * W + x;
+    }
+
+    function normalizeRadius(value) {
+      let radius = Math.round(Number.parseFloat(value));
+      if (!Number.isFinite(radius) || radius < 1) radius = 1;
+      if (radius > 24) radius = 24;
+      return radius;
+    }
+
+    function normalizeInteger(value, min, max, fallback) {
+      let result = Math.round(Number.parseFloat(value));
+      if (!Number.isFinite(result)) result = fallback;
+      return Math.max(min, Math.min(max, result));
+    }
+
+    function normalizeAngle(value) {
+      let angle = Number.parseFloat(value);
+      if (!Number.isFinite(angle)) angle = 0;
+      return angle;
+    }
+
+    function radiusBandVectors(radius) {
+      const z = Math.SQRT2 / 2;
+      const vectors = [];
+
+      for (let x = 0; x <= radius; x++) {
+        for (let y = 0; y <= x; y++) {
+          if (x === 0 && y === 0) continue;
+          const d = Math.hypot(x, y);
+          if ((radius - z) < d && d < (radius + z)) {
+            vectors.push([x, y]);
+          }
+        }
+      }
+
+      return vectors.sort((a, b) => a[1] - b[1] || b[0] - a[0]);
+    }
+
+    function vectorKey(vector) {
+      return `${vector[0]},${vector[1]}`;
+    }
+
+    function parseVectorKey(key) {
+      return key.split(",").map(Number);
+    }
+
+    function selectedBandVector() {
+      const radius = normalizeRadius(el.radius.value);
+      if (el.bandVector.options.length === 0) updateVectorOptions();
+      return parseVectorKey(el.bandVector.value || vectorKey([radius, 0]));
+    }
+
+    function rotateOffset(dx, dy, degrees) {
+      const radians = degrees * Math.PI / 180;
+      const cos = Math.cos(radians);
+      const sin = Math.sin(radians);
+      return [
+        Math.round(dx * cos - dy * sin),
+        Math.round(dx * sin + dy * cos)
+      ];
+    }
+
+    function stencilFromVector(vx, vy) {
+      const px = -vy;
+      const py = vx;
+      return [
+        [-vx - px, -vy - py],
+        [-px, -py],
+        [vx - px, vy - py],
+        [-vx, -vy],
+        [vx, vy],
+        [-vx + px, -vy + py],
+        [px, py],
+        [vx + px, vy + py]
+      ];
+    }
+
+    function updateVectorOptions() {
+      const radius = normalizeRadius(el.radius.value);
+      const vectors = radiusBandVectors(radius);
+      const current = el.bandVector.value;
+      const preferred = vectors.find(([x, y]) => x === radius && y === 0) || vectors[0] || [1, 0];
+      const selected = vectors.some(vector => vectorKey(vector) === current) ? current : vectorKey(preferred);
+
+      el.bandVector.replaceChildren();
+      for (const vector of vectors) {
+        const option = document.createElement("option");
+        option.value = vectorKey(vector);
+        option.textContent = `(${vector[0]},${vector[1]})`;
+        el.bandVector.appendChild(option);
+      }
+      el.bandVector.value = selected;
+    }
+
+    function neighborOffsets() {
+      const angle = normalizeAngle(el.angle.value);
+      const [vx, vy] = selectedBandVector();
+      const rotated = new Set();
+
+      for (const [dx, dy] of stencilFromVector(vx, vy)) {
+        const [rx, ry] = rotateOffset(dx, dy, angle);
+        if (rx !== 0 || ry !== 0) rotated.add(`${rx},${ry}`);
+      }
+
+      return Array.from(rotated, key => key.split(",").map(Number))
+        .sort((a, b) => a[1] - b[1] || a[0] - b[0]);
+    }
+
+    function neighborhoodOffsetSets() {
+      if (el.pythonNeighborhoods.checked) return pythonNeighborhoodOffsetSets();
+      if (!el.allNeighborhoods.checked) return [neighborOffsets()];
+
+      const angle = normalizeAngle(el.angle.value);
+      return radiusBandVectors(normalizeRadius(el.radius.value)).map(([vx, vy]) => {
+        const rotated = new Set();
+        for (const [dx, dy] of stencilFromVector(vx, vy)) {
+          const [rx, ry] = rotateOffset(dx, dy, angle);
+          if (rx !== 0 || ry !== 0) rotated.add(`${rx},${ry}`);
+        }
+        return Array.from(rotated, key => key.split(",").map(Number))
+          .sort((a, b) => a[1] - b[1] || a[0] - b[0]);
+      }).filter(offsets => offsets.length > 0);
+    }
+
+    function pythonNeighborhoodOffsetSets() {
+      const universeCount = normalizeInteger(el.universeCount.value, 1, 24, 3);
+      const sidesCount = normalizeInteger(el.sidesCount.value, 3, 16, 4);
+      const radius = normalizeRadius(el.radius.value);
+      const baseAngle = normalizeAngle(el.angle.value) / 360;
+      const sets = [];
+
+      for (let universe = 0; universe < universeCount; universe++) {
+        const offsets = [];
+        const corners = [];
+        const orientationFraction = universe / universeCount;
+        const hp = 1 / sidesCount;
+        const q = 2 / sidesCount;
+        const n = orientationFraction / sidesCount + baseAngle;
+
+        for (let side = 1; side <= sidesCount; side++) {
+          const angle = (n + q + side * hp) * Math.PI * 2;
+          const dx = Math.trunc(Math.cos(angle) * radius);
+          const dy = Math.trunc(Math.sin(angle) * radius);
+          if (dx !== 0 || dy !== 0) offsets.push([dx, dy]);
+        }
+
+        for (let side = 0; side < offsets.length; side++) {
+          const a = offsets[side];
+          const b = offsets[(side + 1) % offsets.length];
+          const corner = [a[0] + b[0], a[1] + b[1]];
+          if (corner[0] !== 0 || corner[1] !== 0) corners.push(corner);
+        }
+
+        const unique = new Set();
+        for (const [dx, dy] of offsets.concat(corners)) unique.add(`${dx},${dy}`);
+        sets.push(Array.from(unique, key => key.split(",").map(Number))
+          .sort((a, b) => a[1] - b[1] || a[0] - b[0]));
+      }
+
+      return sets.filter(offsets => offsets.length > 0);
+    }
+
+    function wrappedValue(x, y, dx, dy) {
+      return grid[idx(mod(x + dx, W), mod(y + dy, H))];
+    }
+
+    function localToGrid(lx, ly, direction = "se", vector = selectedBandVector()) {
+      let x = lx;
+      let y = ly;
+
+      if (direction === "sw" || direction === "nw") x = -x;
+      if (direction === "ne" || direction === "nw") y = -y;
+
+      const [vx, vy] = vector;
+      const px = -vy;
+      const py = vx;
+      return [x * vx + y * px, x * vy + y * py];
+    }
+
+    function stepLife() {
+      const bits = selectedBits();
+      const mask = selectedMask(bits);
+      const neighborhoods = neighborhoodOffsetSets();
+      const births = birthRuleSet();
+      const survivals = survivalRuleSet();
+      next.set(grid);
+
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const i = idx(x, y);
+          const center = grid[i];
+
+          if (el.interLayer.checked) {
+            const alive = (center & mask) !== 0;
+            let processed = false;
+            let survives = false;
+            const birthColors = [];
+
+            for (const offsets of neighborhoods) {
+              const neighbors = offsets.map(([dx, dy]) => wrappedValue(x, y, dx, dy));
+              const neighborhoodOr = neighbors.reduce((combined, value) => combined | value, center);
+              if ((neighborhoodOr & mask) === 0) continue;
+
+              processed = true;
+              const neighborCount = neighbors.reduce((count, value) => count + ((value & mask) !== 0), 0);
+              if (alive && survivals.has(neighborCount)) {
+                survives = true;
+              } else if (!alive && births.has(neighborCount)) {
+                birthColors.push(...neighbors.map(value => value & mask).filter(value => value !== 0));
+              }
+            }
+
+            if (!processed) continue;
+
+            if (alive && survives) {
+              next[i] = center;
+            } else if (!alive && birthColors.length > 0) {
+              const birthColor = chooseBirthColor(birthColors, el.birthColorMode.value);
+              next[i] = ((next[i] & ~mask) | birthColor) >>> 0;
+            } else {
+              next[i] = applyColorfulDeath(center, next[i] & ~mask, mask);
+            }
+            continue;
+          }
+
+          let newSelected = 0;
+          let processedAny = false;
+          for (const bit of bits) {
+            const b = 1 << bit;
+            const alive = (center & b) !== 0;
+            let processed = false;
+            let aliveWins = false;
+
+            for (const offsets of neighborhoods) {
+              const neighbors = offsets.map(([dx, dy]) => wrappedValue(x, y, dx, dy));
+              const neighborhoodOr = neighbors.reduce((combined, value) => combined | value, center);
+              if ((neighborhoodOr & mask) === 0) continue;
+
+              processed = true;
+              const neighborCount = neighbors.reduce((count, value) => count + ((value & b) !== 0), 0);
+              if ((!alive && births.has(neighborCount)) || (alive && survivals.has(neighborCount))) {
+                aliveWins = true;
+                break;
+              }
+            }
+
+            if (!processed) {
+              if (alive) newSelected |= b;
+            } else if (aliveWins) {
+              newSelected |= b;
+            }
+            processedAny = processedAny || processed;
+          }
+
+          if (processedAny) {
+            const oldSelected = center & mask;
+            const diedSelected = oldSelected & ~newSelected;
+            const cleared = (next[i] & ~mask) | newSelected;
+            next[i] = diedSelected ? applyColorfulDeath(center, cleared, diedSelected) : (cleared >>> 0);
+          }
+        }
+      }
+
+      const old = grid;
+      grid = next;
+      next = old;
+      stepNumber++;
+      origin = mod(origin + normalizeAdvance(el.advance.value), BITS);
+      el.origin.value = origin;
+      const angleAdvance = normalizeAngle(el.angleAdvance.value);
+      if (angleAdvance !== 0) {
+        el.angle.value = normalizeAngle(el.angle.value) + angleAdvance;
+      }
+    }
+
+    function render() {
+      let nonblack = 0;
+      let white = 0;
+      let liveBits = 0;
+      const data = image.data;
+
+      for (let i = 0; i < grid.length; i++) {
+        const value = grid[i] & FULL;
+        if (value !== 0) nonblack++;
+        if (value === FULL) white++;
+        liveBits += bitCount24(value);
+
+        const p = i * 4;
+        data[p] = (value >> 16) & 255;
+        data[p + 1] = (value >> 8) & 255;
+        data[p + 2] = value & 255;
+        data[p + 3] = 255;
+      }
+
+      sourceCtx.putImageData(image, 0, 0);
+      ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = 1;
+      ctx.filter = "none";
+      if (Number(el.cellSpread.value) > 0) {
+        drawCellSpread();
+      } else {
+        ctx.drawImage(sourceCanvas, 0, 0);
+      }
+
+      el.stepReadout.textContent = stepNumber;
+      el.originReadout.textContent = origin;
+      el.nonblackReadout.textContent = nonblack;
+      el.whiteReadout.textContent = white;
+      el.liveBitsReadout.textContent = liveBits;
+      el.bitsReadout.textContent = selectedBits().join(", ");
+      const offsets = el.pythonNeighborhoods.checked
+        ? neighborhoodOffsetSets().flat()
+        : neighborOffsets();
+      const vectorText = el.allNeighborhoods.checked
+        ? `${neighborhoodOffsetSets().length} neighborhoods `
+        : (el.bandVector.value ? `v=(${el.bandVector.value}) ` : "");
+      el.neighborReadout.textContent = `${vectorText}${offsets.length}: ` + offsets.map(([dx, dy]) => `(${dx},${dy})`).join(" ");
+    }
+
+    function visualCellRadius() {
+      const offsets = neighborOffsets();
+      const distances = offsets
+        .map(([dx, dy]) => Math.hypot(dx, dy))
+        .filter(distance => distance > 0);
+      const basisDistance = distances.length ? Math.min(...distances) : 1;
+      const spread = Number(el.cellSpread.value) / 100;
+      return Math.max(0.45, basisDistance * 0.52 * spread);
+    }
+
+    function drawCellSpread() {
+      const radius = visualCellRadius();
+      spreadCtx.clearRect(0, 0, W, H);
+      spreadCtx.globalCompositeOperation = "lighter";
+      spreadCtx.globalAlpha = 1;
+      spreadCtx.filter = radius > 1.25 ? "blur(0.35px)" : "none";
+
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const value = grid[idx(x, y)] & FULL;
+          if (value === 0) continue;
+          spreadCtx.fillStyle = "#" + value.toString(16).padStart(6, "0");
+          drawWrappedDisk(spreadCtx, x, y, radius);
+        }
+      }
+
+      spreadCtx.filter = "none";
+      spreadCtx.globalCompositeOperation = "source-over";
+      ctx.drawImage(spreadCanvas, 0, 0);
+
+      if (radius > 1) {
+        ctx.globalCompositeOperation = "source-over";
+        ctx.globalAlpha = 0.55;
+        ctx.drawImage(sourceCanvas, 0, 0);
+        ctx.globalAlpha = 1;
+      }
+    }
+
+    function drawWrappedDisk(targetCtx, x, y, radius) {
+      for (const ox of [-W, 0, W]) {
+        for (const oy of [-H, 0, H]) {
+          targetCtx.beginPath();
+          targetCtx.arc(x + 0.5 + ox, y + 0.5 + oy, radius, 0, Math.PI * 2);
+          targetCtx.fill();
+        }
+      }
+    }
+
+    function bitCount24(value) {
+      value &= FULL;
+      value = value - ((value >>> 1) & 0x555555);
+      value = (value & 0x333333) + ((value >>> 2) & 0x333333);
+      return ((((value + (value >>> 4)) & 0x0F0F0F) * 0x010101) >>> 16) & 0xFF;
+    }
+
+    function chooseBirthColor(colors, mode) {
+      if (colors.length === 0) return 0;
+      if (mode === "or") return colors.reduce((combined, value) => combined | value, 0) >>> 0;
+      if (mode === "xor") return colors.reduce((combined, value) => combined ^ value, 0) >>> 0;
+
+      const counts = new Map();
+      for (const color of colors) {
+        counts.set(color, (counts.get(color) || 0) + 1);
+      }
+
+      if (mode === "majority") {
+        for (const [color, count] of counts) {
+          if (count >= 2) return color;
+        }
+      } else {
+        const hasMajority = Array.from(counts.values()).some(count => count >= 2);
+        if (hasMajority) {
+          for (const [color, count] of counts) {
+            if (count === 1) return color;
+          }
+        }
+      }
+
+      return colors.reduce((combined, value) => combined | value, 0) >>> 0;
+    }
+
+    function applyColorfulDeath(oldValue, newValue, deathMask) {
+      let r = (newValue >> 16) & 255;
+      let g = (newValue >> 8) & 255;
+      let b = newValue & 255;
+      const oldR = (oldValue >> 16) & 255;
+      const oldG = (oldValue >> 8) & 255;
+      const oldB = oldValue & 255;
+      const deadR = (deathMask >> 16) & 255;
+      const deadG = (deathMask >> 8) & 255;
+      const deadB = deathMask & 255;
+
+      if (el.redDiesGreen.checked) g |= (oldR & deadR) >> 1;
+      if (el.redDiesBlue.checked) b |= (oldR & deadR) >> 1;
+      if (el.greenDiesRed.checked) r |= (oldG & deadG) >> 1;
+      if (el.greenDiesBlue.checked) b |= (oldG & deadG) >> 1;
+      if (el.blueDiesRed.checked) r |= (oldB & deadB) >> 1;
+      if (el.blueDiesGreen.checked) g |= (oldB & deadB) >> 1;
+
+      return (((r & 255) << 16) | ((g & 255) << 8) | (b & 255)) >>> 0;
+    }
+
+    function clearGrid() {
+      grid.fill(0);
+      stepNumber = 0;
+      origin = Number.parseInt(el.origin.value, 10) || 0;
+      origin = mod(origin, BITS);
+      el.origin.value = origin;
+      render();
+    }
+
+    function addGlider(cx, cy, value = FULL, direction = "se", vector = selectedBandVector()) {
+      const cells = [[1,0], [2,1], [0,2], [1,2], [2,2]];
+      for (const [lx, ly] of cells) {
+        const [dx, dy] = localToGrid(lx, ly, direction, vector);
+        grid[idx(mod(cx + dx, W), mod(cy + dy, H))] = value;
+      }
+    }
+
+    function addGliderPack(useMixedVectors = false) {
+      const colors = [
+        0xFFFFFF, 0xFF0000, 0x00FF00, 0x0000FF,
+        0xFFFF00, 0x00FFFF, 0xFF00FF, 0xFFC878,
+        0x78C8FF, 0xC8FF78, 0xC878FF, 0xFF78C8
+      ];
+      const directions = ["se", "sw", "ne", "nw"];
+      const radius = normalizeRadius(el.radius.value);
+      const vectors = radiusBandVectors(radius);
+      const activeVector = selectedBandVector();
+      const shouldMixVectors = useMixedVectors || el.allNeighborhoods.checked;
+      const minDistance = Math.max(10, radius * 5);
+      const seeds = [];
+      const targetCount = 12;
+      const maxAttempts = 500;
+
+      for (let attempt = 0; seeds.length < targetCount && attempt < maxAttempts; attempt++) {
+        const x = 6 + Math.floor(Math.random() * (W - 12));
+        const y = 6 + Math.floor(Math.random() * (H - 12));
+        if (seeds.some(seed => torusDistance(x, y, seed.x, seed.y) < minDistance)) continue;
+
+        seeds.push({
+          x,
+          y,
+          color: colors[seeds.length % colors.length],
+          direction: directions[Math.floor(Math.random() * directions.length)],
+          vector: shouldMixVectors ? (vectors[Math.floor(Math.random() * vectors.length)] || activeVector) : activeVector
+        });
+      }
+
+      for (const seed of seeds) {
+        addGlider(seed.x, seed.y, seed.color, seed.direction, seed.vector);
+      }
+    }
+
+    function torusDistance(ax, ay, bx, by) {
+      const dx = Math.min(Math.abs(ax - bx), W - Math.abs(ax - bx));
+      const dy = Math.min(Math.abs(ay - by), H - Math.abs(ay - by));
+      return Math.hypot(dx, dy);
+    }
+
+    function addBlinker(cx, cy, value = FULL) {
+      for (const localCell of [[0, 0], [1, 0], [2, 0]]) {
+        const [dx, dy] = localToGrid(localCell[0], localCell[1]);
+        grid[idx(mod(cx + dx, W), mod(cy + dy, H))] = value;
+      }
+    }
+
+    function randomize(colorful) {
+      const density = Number(el.density.value) / 100;
+      for (let i = 0; i < grid.length; i++) {
+        if (Math.random() < density) {
+          grid[i] = colorful ? (Math.floor(Math.random() * FULL) + 1) : FULL;
+        } else {
+          grid[i] = 0;
+        }
+      }
+      stepNumber = 0;
+      origin = Number.parseInt(el.origin.value, 10) || 0;
+      origin = mod(origin, BITS);
+      render();
+    }
+
+    function canvasCell(event) {
+      const rect = canvas.getBoundingClientRect();
+      const x = Math.floor((event.clientX - rect.left) * W / rect.width);
+      const y = Math.floor((event.clientY - rect.top) * H / rect.height);
+      return [mod(x, W), mod(y, H)];
+    }
+
+    function paint(event) {
+      const [x, y] = canvasCell(event);
+      grid[idx(x, y)] = event.buttons === 2 ? 0 : paintValue;
+      render();
+    }
+
+    function tick(time) {
+      const targetMs = 1000 / Number(el.speed.value);
+      if (running && time - lastFrame >= targetMs) {
+        stepLife();
+        render();
+        lastFrame = time;
+      }
+      requestAnimationFrame(tick);
+    }
+
+    function setRunning(value) {
+      running = value;
+      el.playPause.textContent = running ? "Pause" : "Play";
+    }
+
+    function updateNeighborhoodControls() {
+      el.bandVector.disabled = el.allNeighborhoods.checked || el.pythonNeighborhoods.checked;
+      el.allNeighborhoods.disabled = el.pythonNeighborhoods.checked;
+    }
+
+    function initSwatches() {
+      for (const [name, value] of swatches) {
+        const button = document.createElement("button");
+        button.className = "swatch";
+        button.title = name;
+        button.style.setProperty("--swatch", "#" + value.toString(16).padStart(6, "0"));
+        button.addEventListener("click", () => {
+          paintValue = value;
+          for (const item of el.swatches.children) item.classList.remove("active");
+          button.classList.add("active");
+        });
+        if (value === paintValue) button.classList.add("active");
+        el.swatches.appendChild(button);
+      }
+    }
+
+    el.playPause.addEventListener("click", () => setRunning(!running));
+    el.singleStep.addEventListener("click", () => {
+      stepLife();
+      render();
+    });
+    el.resetOrigin.addEventListener("click", () => {
+      origin = 0;
+      el.origin.value = origin;
+      render();
+    });
+    el.clear.addEventListener("click", clearGrid);
+    el.glider.addEventListener("click", () => {
+      clearGrid();
+      addGliderPack();
+      render();
+    });
+    el.radiusSampler.addEventListener("click", () => {
+      clearGrid();
+      addGliderPack(true);
+      render();
+    });
+    el.blinker.addEventListener("click", () => {
+      clearGrid();
+      addBlinker(Math.floor(W / 2) - 1, Math.floor(H / 2));
+      render();
+    });
+    el.random.addEventListener("click", () => randomize(false));
+    el.randomColor.addEventListener("click", () => randomize(true));
+
+    document.querySelectorAll("[data-preset]").forEach(button => {
+      button.addEventListener("click", () => {
+        const [count, advance] = button.dataset.preset.split(",");
+        el.bitCount.value = count;
+        el.advance.value = advance;
+        render();
+      });
+    });
+
+    for (const input of [el.bitCount, el.advance, el.origin, el.universeCount, el.sidesCount, el.radius, el.angle, el.angleAdvance]) {
+      input.addEventListener("change", () => {
+        el.bitCount.value = normalizeCount(el.bitCount.value);
+        const oldRadius = normalizeRadius(el.radius.value);
+        el.radius.value = normalizeRadius(el.radius.value);
+        el.universeCount.value = normalizeInteger(el.universeCount.value, 1, 24, 3);
+        el.sidesCount.value = normalizeInteger(el.sidesCount.value, 3, 16, 4);
+        if (input === el.radius || oldRadius !== normalizeRadius(el.radius.value)) updateVectorOptions();
+        origin = mod(Number.parseInt(el.origin.value, 10) || 0, BITS);
+        el.origin.value = origin;
+        render();
+      });
+    }
+
+    el.bandVector.addEventListener("change", render);
+    el.allNeighborhoods.addEventListener("change", () => {
+      updateNeighborhoodControls();
+      render();
+    });
+    el.pythonNeighborhoods.addEventListener("change", () => {
+      updateNeighborhoodControls();
+      render();
+    });
+    el.cellSpread.addEventListener("input", render);
+
+    el.interLayer.addEventListener("change", render);
+    for (const input of [
+      el.birthRule, el.survivalRule, el.birthColorMode,
+      el.redDiesGreen, el.redDiesBlue, el.greenDiesRed,
+      el.greenDiesBlue, el.blueDiesRed, el.blueDiesGreen
+    ]) {
+      input.addEventListener("change", render);
+    }
+
+    canvas.addEventListener("contextmenu", event => event.preventDefault());
+    canvas.addEventListener("pointerdown", event => {
+      canvas.setPointerCapture(event.pointerId);
+      paint(event);
+    });
+    canvas.addEventListener("pointermove", event => {
+      if (event.buttons) paint(event);
+    });
+
+    initSwatches();
+    updateVectorOptions();
+    updateNeighborhoodControls();
+    addGliderPack();
+    render();
+    requestAnimationFrame(tick);
+  </script>
+</body>
+</html>

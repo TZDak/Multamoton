@@ -1,0 +1,1761 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CA Multiverse</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #050606;
+      --panel: #121719;
+      --panel2: #1b2326;
+      --line: #314149;
+      --text: #edf4f6;
+      --muted: #9fb0b8;
+      --accent: #78d7ff;
+      --gold: #ffd166;
+      --danger: #ff8f8f;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    body.settings-open { overflow: auto; }
+    button, input, select { font: inherit; }
+    button {
+      min-height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 7px 10px;
+      color: var(--text);
+      background: var(--panel2);
+      cursor: pointer;
+    }
+    button:hover { border-color: var(--accent); }
+    button.primary { background: #123447; border-color: #23627f; }
+    input[type="number"], input[type="text"], select {
+      width: 112px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 6px 7px;
+      color: var(--text);
+      background: #0d1113;
+    }
+    input.wide, select.wide { width: 230px; max-width: 100%; }
+    input[type="range"] { width: 176px; accent-color: var(--accent); }
+    input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); }
+    label { color: var(--muted); font-size: 13px; }
+    canvas {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      background: #000;
+    }
+    .hud {
+      position: fixed;
+      left: 12px;
+      right: 12px;
+      top: 10px;
+      z-index: 2;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: start;
+      pointer-events: none;
+      font-size: 13px;
+      color: var(--muted);
+      text-shadow: 0 1px 2px #000;
+    }
+    .hud-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+      align-items: center;
+    }
+    .hud strong { color: var(--text); font-weight: 650; }
+    .paint-swatch {
+      width: 18px;
+      height: 18px;
+      border: 1px solid #dce9ed;
+      border-radius: 4px;
+      box-shadow: 0 0 0 1px #000;
+      background: #fff;
+      display: inline-block;
+      vertical-align: middle;
+    }
+    .settings {
+      position: fixed;
+      inset: 0;
+      z-index: 5;
+      display: none;
+      grid-template-rows: auto 1fr;
+      background: rgba(5, 7, 8, .96);
+    }
+    body.settings-open .settings { display: grid; }
+    .settings header {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--line);
+      background: #101416;
+    }
+    h1 { margin: 0; font-size: 18px; letter-spacing: 0; }
+    .settings-body {
+      overflow: auto;
+      padding: 14px;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(240px, 1fr));
+      gap: 12px;
+    }
+    section {
+      align-self: start;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      padding: 12px;
+    }
+    h2 {
+      margin: 0 0 10px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--accent);
+    }
+    .row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 9px;
+      margin: 8px 0;
+    }
+    .check {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin: 7px 0;
+      min-width: 0;
+    }
+    .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+    .stack { display: grid; gap: 8px; }
+    .readout {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #0d1113;
+      min-height: 44px;
+      padding: 8px;
+      color: var(--gold);
+      font: 12px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace;
+      overflow-wrap: anywhere;
+    }
+    .hint { margin: 8px 0 0; color: var(--muted); font-size: 12px; line-height: 1.4; }
+    .danger { color: var(--danger); }
+    .is-disabled-context {
+      opacity: .45;
+    }
+    .is-disabled-context label {
+      color: #7d8b91;
+    }
+    @media (max-width: 1180px) {
+      .settings-body { grid-template-columns: repeat(2, minmax(240px, 1fr)); }
+    }
+    @media (max-width: 680px) {
+      .settings-body { grid-template-columns: 1fr; }
+      .hud { font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="display"></canvas>
+
+  <div class="hud">
+    <div class="hud-group">
+      <span><strong id="modeOut">Running</strong></span>
+      <span>Gen <strong id="generationOut">0</strong></span>
+      <span>Live <strong id="liveOut">0</strong></span>
+      <span>Birth <strong id="birthOut">0</strong></span>
+      <span>Death <strong id="deathOut">0</strong></span>
+      <span>Survive <strong id="survivalOut">0</strong></span>
+    </div>
+    <div class="hud-group">
+      <span class="paint-swatch" id="paintSwatch"></span>
+      <span><strong>Enter</strong> settings</span>
+      <span><strong>Space</strong> pause</span>
+    </div>
+  </div>
+
+  <div class="settings" id="settingsPanel">
+    <header>
+      <h1>CA Multiverse</h1>
+      <div class="grid2">
+        <button id="closeSettings" class="primary">Return To Simulation</button>
+        <button id="fullscreen">Fullscreen</button>
+      </div>
+    </header>
+    <div class="settings-body">
+      <section>
+        <h2>Run</h2>
+        <div class="grid2">
+          <button id="play" class="primary">Pause</button>
+          <button id="step">Step</button>
+          <button id="restart">Restart</button>
+          <button id="randomize">Python Random</button>
+        </div>
+        <div class="row"><label for="speed">Generations / sec</label><input id="speed" type="range" min="1" max="90" value="18"></div>
+        <div class="row"><label for="simWidth">Grid width</label><input id="simWidth" type="number" min="41" max="401" value="201"></div>
+        <div class="row"><label for="simHeight">Grid height</label><input id="simHeight" type="number" min="31" max="251" value="125"></div>
+        <label class="check"><input id="restartStagnant" type="checkbox"> Restart on repeated signatures</label>
+        <p class="hint">Enter toggles this panel. Digits step that many generations while paused; 0 steps ten.</p>
+      </section>
+
+      <section>
+        <h2>Profile</h2>
+        <div class="row"><label for="seed">Multiverse seed</label><input id="seed" class="wide" type="text" value=""></div>
+        <div class="grid2">
+          <button id="applySeed">Apply Seed</button>
+          <button id="defaultProfile">Default</button>
+        </div>
+        <div class="row"><label for="randomStyle">Random style</label><select id="randomStyle">
+          <option value="python" selected>Python-biased</option>
+          <option value="wild">Wild</option>
+          <option value="mutate">Mutate current</option>
+        </select></div>
+        <label class="check"><input id="useGeometryUniverses" type="checkbox" checked> Rotational universe differentiation</label>
+        <label class="check"><input id="useBitLayers" type="checkbox" checked> Bit-layer differentiation</label>
+        <div class="readout" id="profileOut"></div>
+      </section>
+
+      <section>
+        <h2>Geometry</h2>
+        <div class="row" data-geometry-control><label for="universes">Universes</label><input id="universes" type="number" min="1" max="31" value="3"></div>
+        <div class="row"><label for="sides">Sides / neighborhood</label><input id="sides" type="number" min="3" max="24" value="4"></div>
+        <div class="row"><label for="radiusAugment">Radius augment</label><input id="radiusAugment" type="number" min="0" max="40" value="1"></div>
+        <label class="check"><input id="corners" type="checkbox" checked> Include corners in radius search</label>
+        <div class="row"><label for="wrapMode">Wrap mode</label><select id="wrapMode">
+          <option value="python" selected>Python mirror</option>
+          <option value="torus">Torus</option>
+          <option value="dead">Dead outside</option>
+        </select></div>
+        <div class="readout" id="neighborhoodOut"></div>
+      </section>
+
+      <section>
+        <h2>Rules</h2>
+        <div class="row"><label for="birthRule">Birth counts</label><input id="birthRule" type="text" value="3"></div>
+        <div class="row"><label for="survivalRule">Survival counts</label><input id="survivalRule" type="text" value="2,3"></div>
+        <div class="row"><label for="consensus">Consensus</label><select id="consensus" class="wide">
+          <option value="-1" selected>-1 / suppress disagreement</option>
+          <option value="BIRTH">force BIRTH</option>
+          <option value="SURVIVAL">force SURVIVAL</option>
+          <option value="min">min(census)</option>
+          <option value="max">max(census)</option>
+          <option value="sum">sum(census)</option>
+          <option value="len">len(census)</option>
+          <option value="avg">average floor</option>
+          <option value="and">bitwise AND</option>
+          <option value="or">bitwise OR</option>
+          <option value="xor">bitwise XOR</option>
+          <option value="rule-min">min rule intersection</option>
+          <option value="rule-max">max rule intersection</option>
+          <option value="py123">B if len=3, S if len=2</option>
+        </select></div>
+        <div class="row" data-geometry-control><label for="newbornLineage">Newborn lineage</label><select id="newbornLineage">
+          <option value="source" selected>unambiguous source else all</option>
+          <option value="all">all receptive</option>
+          <option value="parents">all parent lineages</option>
+          <option value="candidate">candidate/default lineage</option>
+        </select></div>
+      </section>
+
+      <section>
+        <h2>State Slices</h2>
+        <div class="row" data-bit-control><label for="sliceMode">Slice mode</label><select id="sliceMode">
+          <option value="full" selected>full 24-bit color</option>
+          <option value="rgb">RGB channel groups</option>
+          <option value="bits">bit slices</option>
+        </select></div>
+        <div class="row" data-bit-control><label for="sliceSchedule">Bit schedule</label><select id="sliceSchedule">
+          <option value="static" selected>all configured slices</option>
+          <option value="moving">moving window clock</option>
+        </select></div>
+        <div class="row" data-bit-control><label for="bitsPerSlice">Bits per slice</label><input id="bitsPerSlice" type="number" min="-24" max="24" value="2"></div>
+        <div class="row" data-bit-control><label for="sliceAdvance">Slice advance</label><input id="sliceAdvance" type="number" min="-24" max="24" value="1"></div>
+        <div class="row" data-bit-control><label for="sliceOrigin">Slice origin</label><input id="sliceOrigin" type="number" min="0" max="23" value="0"></div>
+        <div class="row" data-bit-control><label for="activeSlices">Active slices</label><input id="activeSlices" type="number" min="1" max="24" value="24"></div>
+        <div class="row" data-bit-control><label for="sliceInteraction">Slice interaction</label><select id="sliceInteraction">
+          <option value="weak" selected>weak consensus</option>
+          <option value="isolated">isolated slices</option>
+          <option value="strong">strong shared color</option>
+        </select></div>
+        <label class="check" data-bit-control><input id="sepR" type="checkbox"> RGB mode: red separately</label>
+        <label class="check" data-bit-control><input id="sepG" type="checkbox"> RGB mode: green separately</label>
+        <label class="check" data-bit-control><input id="sepB" type="checkbox"> RGB mode: blue separately</label>
+        <div class="grid2" data-bit-control>
+          <button data-bit-preset="2,1">2 bits / advance 1</button>
+          <button data-bit-preset="23,1">23 bits / advance 1</button>
+          <button data-bit-preset="-8,-3">-8 bits / advance -3</button>
+          <button data-bit-preset="8,8">8 bits / advance 8</button>
+        </div>
+        <div class="readout" id="sliceOut"></div>
+        <div class="row"><label for="birthColorMode">Birth color</label><select id="birthColorMode">
+          <option value="rare" selected>Python rare/XOR</option>
+          <option value="minority">minority if available</option>
+          <option value="majority">majority if available</option>
+          <option value="or">bitwise OR</option>
+        </select></div>
+        <label class="check"><input id="survivalMutation" type="checkbox"> Python parity survival mutation</label>
+        <div class="row"><label for="residueMode">Dead color buffer</label><select id="residueMode">
+          <option value="clear" selected>clear normally</option>
+          <option value="preserve">preserve outside candidates</option>
+          <option value="fade">fade outside candidates</option>
+        </select></div>
+      </section>
+
+      <section>
+        <h2>Color</h2>
+        <div class="row"><label for="hueOffset">Hue offset %</label><input id="hueOffset" type="number" value="-70"></div>
+        <div class="row" data-geometry-control><label for="cpuBirths">Unambiguous birth tint %</label><input id="cpuBirths" type="number" value="15"></div>
+        <div class="row" data-geometry-control><label for="colorByUniverse">Seed by universe</label><input id="colorByUniverse" type="number" min="0" max="20" value="7"></div>
+        <div class="row"><label for="colorByItem">Seed by item</label><input id="colorByItem" type="number" min="0" max="20" value="5"></div>
+        <div class="row"><label for="colorByCell">Seed by cell</label><input id="colorByCell" type="number" min="0" max="20" value="2"></div>
+        <div class="row"><label for="randomColors">Seed random</label><input id="randomColors" type="number" min="0" max="20" value="3"></div>
+        <div class="row"><label for="desaturation">Seed gray</label><input id="desaturation" type="number" min="0" max="20" value="0"></div>
+      </section>
+
+      <section>
+        <h2>Colorful Death</h2>
+        <div class="grid3">
+          <label class="check"><input id="redBlue" type="checkbox"> R to B</label>
+          <label class="check"><input id="redGreen" type="checkbox"> R to G</label>
+          <label class="check"><input id="greenRed" type="checkbox"> G to R</label>
+          <label class="check"><input id="greenBlue" type="checkbox"> G to B</label>
+          <label class="check"><input id="blueGreen" type="checkbox"> B to G</label>
+          <label class="check"><input id="blueRed" type="checkbox"> B to R</label>
+        </div>
+      </section>
+
+      <section>
+        <h2>Seeds</h2>
+        <div class="row"><label for="startThings">Start things</label><input id="startThings" type="number" min="1" max="160" value="12"></div>
+        <div class="row"><label for="randomPlacement">Random placement %</label><input id="randomPlacement" type="number" min="0" max="100" value="0"></div>
+        <div class="row"><label for="itemRotation">Initial item rotation</label><input id="itemRotation" type="number" min="-360" max="360" value="90"></div>
+        <div class="row" data-bit-control><label for="seedBits">Seed live bits</label><select id="seedBits">
+          <option value="full" selected>full mask</option>
+          <option value="color">visible color bits</option>
+          <option value="current">current window</option>
+          <option value="rotating">rotating window per seed</option>
+          <option value="random">random window per seed</option>
+        </select></div>
+        <div class="row"><label for="density">Random density %</label><input id="density" type="number" min="1" max="100" value="22"></div>
+        <div class="grid2">
+          <button id="bitGliders">Bit Glider Pack</button>
+          <button id="bitSampler">Radius Sampler</button>
+          <button id="bitBlinker">White Blinker</button>
+          <button id="bitRandom">Random</button>
+          <button id="bitRandomColor">Random Color</button>
+          <button id="clearWorld">Clear</button>
+        </div>
+        <div class="grid2">
+          <label class="check"><input id="uBlinker" type="checkbox"> Blinker</label>
+          <label class="check"><input id="uGlider0" type="checkbox"> Glider A</label>
+          <label class="check"><input id="uGlider1" type="checkbox" checked> Glider B</label>
+          <label class="check"><input id="uAcorn" type="checkbox"> Acorn</label>
+          <label class="check"><input id="uTen" type="checkbox"> Ten-cell</label>
+          <label class="check"><input id="uOPent" type="checkbox"> O-pent</label>
+          <label class="check"><input id="uQPent" type="checkbox"> Q-pent</label>
+          <label class="check"><input id="uRPent" type="checkbox" checked> R-pent</label>
+          <label class="check"><input id="uTPent" type="checkbox"> T-pent</label>
+          <label class="check"><input id="uXPent" type="checkbox"> X-pent</label>
+        </div>
+      </section>
+
+      <section>
+        <h2>Rendering</h2>
+        <div class="row"><label for="renderMode">Render mode</label><select id="renderMode">
+          <option value="python" selected>Python halo</option>
+          <option value="crisp">crisp cells</option>
+          <option value="soft">soft composite</option>
+          <option value="lineage">lineage debug</option>
+          <option value="alive">alive mask</option>
+        </select></div>
+        <div class="row"><label for="spread">Glass size</label><input id="spread" type="range" min="0" max="100" value="67"></div>
+        <div class="row"><label for="haloOpacity">Glass opacity</label><input id="haloOpacity" type="range" min="0" max="100" value="100"></div>
+        <div class="row"><label for="haloDensity">Ghost size</label><input id="haloDensity" type="range" min="0" max="100" value="100"></div>
+        <div class="row"><label for="ghostOpacity">Ghost opacity</label><input id="ghostOpacity" type="range" min="0" max="100" value="50"></div>
+        <div class="row"><label for="oversize">Scene zoom</label><input id="oversize" type="range" min="105" max="280" value="105"></div>
+        <label class="check"><input id="mirrorBorders" type="checkbox" checked> Mirror border scene</label>
+        <label class="check"><input id="wobble" type="checkbox" checked> Wobble display orientation</label>
+        <div class="row"><label for="tiltSpeed">Tilt speed</label><input id="tiltSpeed" type="number" value="13"></div>
+        <div class="row"><label for="tiltStart">Start tilt %</label><input id="tiltStart" type="number" value="20"></div>
+        <div class="row"><label for="maxTilt">Max tilt</label><input id="maxTilt" type="number" value="10"></div>
+      </section>
+
+      <section>
+        <h2>Painting</h2>
+        <div class="row"><label for="paintColor">Paint color</label><input id="paintColor" type="text" value="#ffffff"></div>
+        <div class="row" data-geometry-control><label for="paintUniverse">Paint universe</label><select id="paintUniverse">
+          <option value="all" selected>all receptive</option>
+          <option value="0">universe 0</option>
+        </select></div>
+        <div class="row"><label for="paintMode">Paint mode</label><select id="paintMode">
+          <option value="alive" selected>alive logical cell</option>
+          <option value="residue">dead color residue</option>
+          <option value="color-only">visible RGB only</option>
+        </select></div>
+        <div class="row"><label for="brush">Brush radius</label><input id="brush" type="number" min="0" max="12" value="0"></div>
+        <p class="hint">Left click paints. Right click picks the pointed cell color. Shift-left erases.</p>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("display");
+    const ctx = canvas.getContext("2d", { alpha: false });
+    const $ = id => document.getElementById(id);
+    const FULL = 0xFFFFFF;
+    const BG = 0;
+    const TAU = Math.PI * 2;
+
+    const el = {
+      settingsPanel: $("settingsPanel"), closeSettings: $("closeSettings"), fullscreen: $("fullscreen"),
+      play: $("play"), step: $("step"), restart: $("restart"), randomize: $("randomize"),
+      speed: $("speed"), simWidth: $("simWidth"), simHeight: $("simHeight"), restartStagnant: $("restartStagnant"),
+      seed: $("seed"), applySeed: $("applySeed"), defaultProfile: $("defaultProfile"), randomStyle: $("randomStyle"), profileOut: $("profileOut"),
+      useGeometryUniverses: $("useGeometryUniverses"), universes: $("universes"), sides: $("sides"), radiusAugment: $("radiusAugment"), corners: $("corners"), wrapMode: $("wrapMode"), neighborhoodOut: $("neighborhoodOut"),
+      birthRule: $("birthRule"), survivalRule: $("survivalRule"), consensus: $("consensus"), newbornLineage: $("newbornLineage"),
+      useBitLayers: $("useBitLayers"), sliceMode: $("sliceMode"), sliceSchedule: $("sliceSchedule"), bitsPerSlice: $("bitsPerSlice"), sliceAdvance: $("sliceAdvance"), sliceOrigin: $("sliceOrigin"), activeSlices: $("activeSlices"), sliceInteraction: $("sliceInteraction"), sliceOut: $("sliceOut"),
+      sepR: $("sepR"), sepG: $("sepG"), sepB: $("sepB"), birthColorMode: $("birthColorMode"), survivalMutation: $("survivalMutation"), residueMode: $("residueMode"),
+      hueOffset: $("hueOffset"), cpuBirths: $("cpuBirths"), colorByUniverse: $("colorByUniverse"), colorByItem: $("colorByItem"), colorByCell: $("colorByCell"), randomColors: $("randomColors"), desaturation: $("desaturation"),
+      redBlue: $("redBlue"), redGreen: $("redGreen"), greenRed: $("greenRed"), greenBlue: $("greenBlue"), blueGreen: $("blueGreen"), blueRed: $("blueRed"),
+      startThings: $("startThings"), randomPlacement: $("randomPlacement"), itemRotation: $("itemRotation"), seedBits: $("seedBits"), density: $("density"),
+      bitGliders: $("bitGliders"), bitSampler: $("bitSampler"), bitBlinker: $("bitBlinker"), bitRandom: $("bitRandom"), bitRandomColor: $("bitRandomColor"), clearWorld: $("clearWorld"),
+      uBlinker: $("uBlinker"), uGlider0: $("uGlider0"), uGlider1: $("uGlider1"), uAcorn: $("uAcorn"), uTen: $("uTen"), uOPent: $("uOPent"), uQPent: $("uQPent"), uRPent: $("uRPent"), uTPent: $("uTPent"), uXPent: $("uXPent"),
+      renderMode: $("renderMode"), spread: $("spread"), haloDensity: $("haloDensity"), haloOpacity: $("haloOpacity"), ghostOpacity: $("ghostOpacity"), oversize: $("oversize"), mirrorBorders: $("mirrorBorders"), wobble: $("wobble"), tiltSpeed: $("tiltSpeed"), tiltStart: $("tiltStart"), maxTilt: $("maxTilt"),
+      paintColor: $("paintColor"), paintUniverse: $("paintUniverse"), paintMode: $("paintMode"), brush: $("brush"), paintSwatch: $("paintSwatch"),
+      modeOut: $("modeOut"), generationOut: $("generationOut"), liveOut: $("liveOut"), birthOut: $("birthOut"), deathOut: $("deathOut"), survivalOut: $("survivalOut")
+    };
+
+    let W = 201, H = 125, N = W * H;
+    let colors, aliveBits, masks, nextColors, nextAliveBits, nextMasks, image;
+    let sourceCanvas, sourceCtx, sceneCanvas, sceneCtx, haloCanvas, haloCtx;
+    let neighborhoods = [], allOffsets = [], haloOffsets = [], radiusUsed = 1;
+    let running = true, generation = 0, lastStepTime = 0, lastRenderTime = 0, sineAngle = 0;
+    let sliceOriginCurrent = 0;
+    let lastSliceInfo = { processedMask: FULL, slices: [{ mask: FULL, index: 0, label: "full" }], staticMode: true };
+    let stats = { births: 0, deaths: 0, survivals: 0, live: 0 };
+    let paintColor = FULL;
+    let signatureDeque = [], stagnationCount = 0;
+    let rng = Math.random;
+    let view = { dpr: 1, angle: 0, scale: 1, sceneW: 1, sceneH: 1, borderX: 0, borderY: 0, cw: 1, ch: 1 };
+
+    function mod(n, m) { return ((n % m) + m) % m; }
+    function floorDiv(n, d) { return Math.floor(n / d); }
+    function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
+    function trunc(n) { return n < 0 ? Math.ceil(n) : Math.floor(n); }
+    function gcd(a, b) {
+      a = Math.abs(a); b = Math.abs(b);
+      while (b) [a, b] = [b, a % b];
+      return a || 1;
+    }
+    function intInput(input, lo, hi, fallback, odd = false) {
+      let value = Math.round(Number(input.value));
+      if (!Number.isFinite(value)) value = fallback;
+      value = clamp(value, lo, hi);
+      if (odd && value % 2 === 0) value += value < hi ? 1 : -1;
+      input.value = value;
+      return value;
+    }
+    function numInput(input, fallback) {
+      const value = Number(input.value);
+      return Number.isFinite(value) ? value : fallback;
+    }
+    function parseRule(text, fallback) {
+      const nums = String(text).split(/[^0-9]+/).filter(Boolean).map(Number).filter(n => Number.isInteger(n) && n >= 0);
+      return new Set(nums.length ? nums : fallback);
+    }
+    function rgb(r, g, b) { return (((r & 255) << 16) | ((g & 255) << 8) | (b & 255)) >>> 0; }
+    function red(c) { return (c >>> 16) & 255; }
+    function green(c) { return (c >>> 8) & 255; }
+    function blue(c) { return c & 255; }
+    function hex(c) { return "#" + (c >>> 0).toString(16).padStart(6, "0"); }
+    function colorArray(c) { return [red(c), green(c), blue(c)]; }
+    function fromArray(a) { return rgb(a[0] || 0, a[1] || 0, a[2] || 0); }
+    function faded(c, amount) { return rgb(red(c) * amount, green(c) * amount, blue(c) * amount); }
+
+    function hashSeed(text) {
+      if (text === "" || text == null || text === "default") return 0;
+      if (text === "random") return Math.floor(Math.random() * 0x7fffffff);
+      const asNumber = Number(text);
+      if (Number.isFinite(asNumber)) return Math.abs(Math.floor(asNumber)) >>> 0;
+      let h = 2166136261;
+      for (let i = 0; i < text.length; i++) {
+        h ^= text.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+      }
+      return h >>> 0;
+    }
+    function seededRandom(seed) {
+      let s = seed >>> 0 || 1;
+      return () => {
+        s = Math.imul(1664525, s) + 1013904223 >>> 0;
+        return s / 0x100000000;
+      };
+    }
+    function randInt(lo, hi) { return lo + Math.floor(rng() * (hi - lo + 1)); }
+    function choice(items) { return items[Math.floor(rng() * items.length)]; }
+
+    function hsv(h, s, v) {
+      h = mod(h, 1);
+      const i = Math.floor(h * 6);
+      const f = h * 6 - i;
+      const p = v * (1 - s);
+      const q = v * (1 - f * s);
+      const t = v * (1 - (1 - f) * s);
+      const m = [[v, t, p], [q, v, p], [p, v, t], [p, q, v], [t, p, v], [v, p, q]][i % 6];
+      return rgb(Math.round(m[0] * 255), Math.round(m[1] * 255), Math.round(m[2] * 255));
+    }
+    function geometryDifferentiationEnabled() { return el.useGeometryUniverses.checked; }
+    function bitDifferentiationEnabled() { return el.useBitLayers.checked; }
+    function universeCount() { return geometryDifferentiationEnabled() ? intInput(el.universes, 1, 31, 3) : 1; }
+    function allMask() {
+      const n = universeCount();
+      return n >= 31 ? 0x7fffffff : ((1 << n) - 1) >>> 0;
+    }
+    function universalColor(universe) {
+      const n = universeCount();
+      return hsv(((universe + numInput(el.hueOffset, -70) * n / 100) % n) / n, 1, .75);
+    }
+    function blendColors(a, b, t) {
+      t = clamp(t, -1, 1);
+      const m = Math.abs(t);
+      return rgb(
+        Math.round(red(a) * (1 - m) + red(b) * m),
+        Math.round(green(a) * (1 - m) + green(b) * m),
+        Math.round(blue(a) * (1 - m) + blue(b) * m)
+      );
+    }
+
+    function resizeWorld() {
+      W = intInput(el.simWidth, 41, 401, 201, true);
+      H = intInput(el.simHeight, 31, 251, 125, true);
+      N = W * H;
+      colors = new Uint32Array(N);
+      aliveBits = new Uint32Array(N);
+      masks = new Uint32Array(N);
+      nextColors = new Uint32Array(N);
+      nextAliveBits = new Uint32Array(N);
+      nextMasks = new Uint32Array(N);
+      sourceCanvas = document.createElement("canvas");
+      sourceCanvas.width = W;
+      sourceCanvas.height = H;
+      sourceCtx = sourceCanvas.getContext("2d", { alpha: false });
+      image = sourceCtx.createImageData(W, H);
+      sceneCanvas = document.createElement("canvas");
+      sceneCtx = sceneCanvas.getContext("2d", { alpha: true });
+      haloCanvas = document.createElement("canvas");
+      haloCtx = haloCanvas.getContext("2d", { alpha: true });
+      calculateNeighborhoods();
+    }
+
+    function wrappedXY(x, y) {
+      const inX = 0 <= x && x < W;
+      const inY = 0 <= y && y < H;
+      if (el.wrapMode.value === "dead" && (!inX || !inY)) return null;
+      if (el.wrapMode.value === "torus") return [mod(x, W), mod(y, H)];
+      let xx = x, yy = y;
+      if (!(inX || inY)) {
+        const wrapY = floorDiv(yy, H);
+        const wrapX = floorDiv(xx, W);
+        xx = mod(xx, W);
+        yy = mod(yy, H);
+        if (wrapY) xx = W - 1 - xx;
+        if (wrapX) yy = H - 1 - yy;
+      } else if (!inX) {
+        const wrapX = floorDiv(xx, W);
+        xx = mod(xx, W);
+        if (wrapX) yy = H - 1 - yy;
+      } else if (!inY) {
+        const wrapY = floorDiv(yy, H);
+        yy = mod(yy, H);
+        if (wrapY) xx = W - 1 - xx;
+      }
+      return [xx, yy];
+    }
+    function idx(x, y) {
+      const xy = wrappedXY(x, y);
+      return xy ? xy[1] * W + xy[0] : -1;
+    }
+    function cellAlive(i) { return (aliveBits[i] & FULL) !== 0; }
+    function maskAt(i) { return cellAlive(i) ? (masks[i] || allMask()) : allMask(); }
+    function activeUniverses(mask) {
+      const n = universeCount();
+      const out = [];
+      const effective = mask || allMask();
+      for (let i = 0; i < n; i++) if (effective & (1 << i)) out.push(i);
+      return out.length ? out : [...Array(n).keys()];
+    }
+
+    function calculateNeighborhood(orientationFraction, sidesCount, radius, hasCorners) {
+      const hp = 1 / sidesCount;
+      const q = 2 / sidesCount;
+      const n = orientationFraction / sidesCount;
+      const offsets = [];
+      const seen = new Set();
+      for (let side = 1; side <= sidesCount; side++) {
+        const a = (n + q + side * hp) * TAU;
+        const dx = trunc(Math.cos(a) * radius);
+        const dy = trunc(Math.sin(a) * radius);
+        const key = `${dx},${dy}`;
+        if ((dx || dy) && !seen.has(key)) {
+          seen.add(key);
+          offsets.push([dx, dy]);
+        }
+      }
+      if (hasCorners) {
+        const base = offsets.slice();
+        for (let i = 0; i < base.length; i++) {
+          const a = base[i], b = base[(i + 1) % base.length];
+          const dx = a[0] + b[0], dy = a[1] + b[1];
+          const key = `${dx},${dy}`;
+          if ((dx || dy) && !seen.has(key)) {
+            seen.add(key);
+            offsets.push([dx, dy]);
+          }
+        }
+      }
+      return offsets;
+    }
+    function calculateNeighborhoods() {
+      const n = universeCount();
+      const sides = intInput(el.sides, 3, 24, 4);
+      const augment = intInput(el.radiusAugment, 0, 40, 1);
+      const hasCorners = el.corners.checked;
+      const effectiveAugment = augment;
+      const expectedPerNeighborhood = sides * (hasCorners ? 2 : 1);
+      let accepted = false;
+      let radius = 1;
+      let sets = [];
+      while (radius < 160 && accepted !== radius) {
+        const locations = [];
+        sets = [];
+        for (let u = 0; u < n; u++) {
+          const offsets = calculateNeighborhood(u / n, sides, radius, hasCorners);
+          locations.push(...offsets.map(([dx, dy]) => `${dx},${dy}`));
+          sets.push(offsets);
+        }
+        const eachNeighborhoodComplete = hasCorners || sets.every(offsets => offsets.length === expectedPerNeighborhood);
+        if (eachNeighborhoodComplete && new Set(locations).size === locations.length) {
+          if (effectiveAugment && !accepted) {
+            accepted = radius;
+            radius += effectiveAugment;
+          } else {
+            accepted = radius;
+          }
+        } else {
+          if (accepted) accepted += 1;
+          radius += 1;
+        }
+      }
+      sets = [];
+      for (let u = 0; u < n; u++) {
+        sets.push(calculateNeighborhood(u / n, sides, radius, true));
+      }
+      radiusUsed = radius;
+      neighborhoods = sets.map((offsets, universe) => ({ universe, offsets, sides }));
+      allOffsets = Array.from(new Set(sets.flat().map(([dx, dy]) => `${dx},${dy}`)), key => key.split(",").map(Number));
+      haloOffsets = Array.from(new Set(allOffsets.map(([dx, dy]) => `${Math.round(dx * .35)},${Math.round(dy * .35)}`)), key => key.split(",").map(Number)).filter(([dx, dy]) => dx || dy);
+      updatePaintUniverses();
+      const universeText = n === 1 ? `1 universe` : `${n} universes`;
+      el.neighborhoodOut.textContent = `radius ${radiusUsed}; ${universeText}; ${allOffsets.length} offsets; halo ${haloOffsets.length}`;
+    }
+
+    function bitMaskFromPositions(start, width) {
+      let mask = 0;
+      const direction = width < 0 ? -1 : 1;
+      const count = Math.max(1, Math.min(24, Math.abs(width || 1)));
+      for (let i = 0; i < count; i++) {
+        const bit = mod(start + i * direction, 24);
+        mask |= (1 << bit) >>> 0;
+      }
+      return mask >>> 0;
+    }
+    function bitPositionsFromMask(mask) {
+      const bits = [];
+      for (let bit = 0; bit < 24; bit++) if (mask & (1 << bit)) bits.push(bit);
+      return bits;
+    }
+    function stateSlices(options = {}) {
+      if (!bitDifferentiationEnabled()) {
+        el.sliceOut.textContent = `bit-layer differentiation off; 1 full-color slice; effective universes ${universeCount()}`;
+        return { slices: [{ mask: FULL, index: 0, label: "full" }], processedMask: FULL, staticMode: true, origin: 0, advance: 0 };
+      }
+      if (el.sliceMode.value === "bits") {
+        let width = intInput(el.bitsPerSlice, -24, 24, 2);
+        if (width === 0) {
+          width = 1;
+          el.bitsPerSlice.value = 1;
+        }
+        let advance = intInput(el.sliceAdvance, -24, 24, 1);
+        if (advance === 0) {
+          advance = width < 0 ? -1 : 1;
+          el.sliceAdvance.value = advance;
+        }
+        const origin = intInput(el.sliceOrigin, 0, 23, 0);
+        const runtimeOrigin = options.useRuntimeOrigin ? sliceOriginCurrent : origin;
+        if (el.sliceSchedule.value === "moving") {
+          const mask = bitMaskFromPositions(runtimeOrigin, width);
+          const slices = [{ mask, index: 0, label: `b${runtimeOrigin}${width < 0 ? "-" : "+"}${Math.abs(width)}` }];
+          const bits = bitPositionsFromMask(mask).join(",");
+          const period = 24 / gcd(advance, 24);
+          el.sliceOut.textContent = `moving window; origin ${runtimeOrigin}; bits ${bits}; mask ${mask.toString(16).padStart(6, "0")}; lanes ${universeCount()}; period ${period}`;
+          return { slices, processedMask: mask, staticMode: false, origin: runtimeOrigin, advance };
+        }
+        const count = intInput(el.activeSlices, 1, 24, 24);
+        const slices = [];
+        const seen = new Set();
+        for (let i = 0; i < count; i++) {
+          const start = mod(origin + i * advance, 24);
+          const mask = bitMaskFromPositions(start, width);
+          const key = mask.toString(16);
+          if (!seen.has(key)) {
+            seen.add(key);
+            slices.push({ mask, index: i, label: `b${start}${width < 0 ? "-" : "+"}${Math.abs(width)}` });
+          }
+        }
+        const processedMask = slices.reduce((mask, slice) => mask | slice.mask, 0) >>> 0;
+        el.sliceOut.textContent = `${slices.length} static bit slices; lanes ${universeCount() * slices.length}; masks ${slices.map(s => s.mask.toString(16).padStart(6, "0")).join(" ")}`;
+        return { slices, processedMask, staticMode: true, origin, advance };
+      }
+      if (el.sliceMode.value === "rgb") {
+        const r = el.sepR.checked, g = el.sepG.checked, b = el.sepB.checked;
+        const separate = Number(r) + Number(g) + Number(b);
+        let masksForGroups;
+        if (separate > 1) masksForGroups = [0xFF0000, 0x00FF00, 0x0000FF];
+        else if (separate === 1) {
+          if (r) masksForGroups = [0xFF0000, 0x00FFFF];
+          else if (g) masksForGroups = [0x00FF00, 0xFF00FF];
+          else masksForGroups = [0x0000FF, 0xFFFF00];
+        } else masksForGroups = [FULL];
+        el.sliceOut.textContent = `${masksForGroups.length} RGB groups; effective universes ${universeCount() * masksForGroups.length}`;
+        return { slices: masksForGroups.map((mask, index) => ({ mask, index, label: `rgb${index}` })), processedMask: FULL, staticMode: true, origin: 0, advance: 0 };
+      }
+      el.sliceOut.textContent = `1 full-color slice; effective universes ${universeCount()}`;
+      return { slices: [{ mask: FULL, index: 0, label: "full" }], processedMask: FULL, staticMode: true, origin: 0, advance: 0 };
+    }
+    function bitReduce(values, op) {
+      if (!values.length) return 0;
+      return values.reduce((a, b) => op === "and" ? a & b : op === "or" ? a | b : a ^ b);
+    }
+    function resolveConsensus(counts, birthRule, survivalRule) {
+      const unique = [...new Set(counts.filter(c => c !== 0))];
+      if (unique.length === 0) return 0;
+      if (unique.length === 1) return unique[0];
+      switch (el.consensus.value) {
+        case "BIRTH": return "BIRTH";
+        case "SURVIVAL": return "SURVIVAL";
+        case "min": return Math.min(...unique);
+        case "max": return Math.max(...unique);
+        case "sum": return unique.reduce((a, b) => a + b, 0);
+        case "len": return unique.length;
+        case "avg": return Math.floor(unique.reduce((a, b) => a + b, 0) / unique.length);
+        case "and": return bitReduce(unique, "and");
+        case "or": return bitReduce(unique, "or");
+        case "xor": return bitReduce(unique, "xor");
+        case "rule-min": {
+          const allowed = unique.filter(v => birthRule.has(v) || survivalRule.has(v));
+          return allowed.length ? Math.min(...allowed) : -1;
+        }
+        case "rule-max": {
+          const allowed = unique.filter(v => birthRule.has(v) || survivalRule.has(v));
+          return allowed.length ? Math.max(...allowed) : -1;
+        }
+        case "py123": return unique.length === 2 ? "SURVIVAL" : unique.length === 3 ? "BIRTH" : "DEATH";
+        default: return -1;
+      }
+    }
+
+    function chooseBirthColor(mateColors) {
+      const list = mateColors.filter(c => c !== BG);
+      if (!list.length) return paintColor || FULL;
+      if (el.birthColorMode.value === "or") {
+        return list.reduce((a, b) => a | b, 0) || FULL;
+      }
+      const counts = new Map();
+      for (const c of list) counts.set(c, (counts.get(c) || 0) + 1);
+      const vals = [...counts.entries()];
+      if (el.birthColorMode.value === "majority") {
+        const max = Math.max(...vals.map(([, count]) => count));
+        const winners = vals.filter(([, count]) => count === max).map(([c]) => c);
+        if (winners.length === 1) return winners[0];
+      }
+      const target = Math.min(...vals.map(([, count]) => count));
+      const rare = vals.filter(([, count]) => count === target).map(([c]) => c);
+      if (el.birthColorMode.value === "minority" && rare.length === 1) return rare[0];
+      if (rare.length === 1) return rare[0];
+      let r = 0, g = 0, b = 0;
+      for (const c of rare) { r ^= red(c); g ^= green(c); b ^= blue(c); }
+      if ((r | g | b) === 0) {
+        r = Math.max(...rare.map(red));
+        g = Math.max(...rare.map(green));
+        b = Math.max(...rare.map(blue));
+      }
+      if (r + g + b < 48) { r += 32; g += 32; b += 32; }
+      return rgb(r, g, b);
+    }
+    function rotateIntoGroup(color, groupMask) {
+      let c = color;
+      for (let i = 0; i < 3; i++) {
+        c = rgb(green(c), blue(c), red(c));
+        if (c & groupMask) return c & groupMask;
+      }
+      return 0;
+    }
+    function mutateColor(c) {
+      if (!el.survivalMutation.checked || c === 0) return c;
+      const a = colorArray(c);
+      if (a[0] === 0 && a[1] === 0 && a[2] === 0) return c;
+      if (a[0] === a[1] && a[1] === a[2]) return a[0] * 3 < 48 ? rgb(a[0] + 32, a[1] + 32, a[2] + 32) : c;
+      const sign0 = 1 - (a[0] & 1) * 2;
+      const sign1 = 1 - (a[1] & 1) * 2;
+      const sign2 = 1 - (a[2] & 1) * 2;
+      const sum = a[0] + a[1] + a[2];
+      const ad1 = sum > 640 ? 0 : 4;
+      const ad2 = sum > 640 ? 0 : 6;
+      if (a[0] > a[1] && a[0] > a[2]) { a[1] -= ad2 * sign0; a[2] += ad1 * sign0; }
+      else if (a[1] > a[0] && a[1] > a[2]) { a[2] -= ad2 * sign1; a[0] += ad1 * sign1; }
+      else if (a[2] > a[0] && a[2] > a[1]) { a[0] -= ad2 * sign2; a[1] += ad1 * sign2; }
+      else if (a[0] < a[1] && a[0] < a[2]) { a[1] += ad2 * sign0; a[2] -= ad1 * sign0; }
+      else if (a[1] < a[0] && a[1] < a[2]) { a[2] += ad2 * sign1; a[0] -= ad1 * sign1; }
+      else if (a[2] < a[0] && a[2] < a[1]) { a[0] += ad2 * sign2; a[1] -= ad1 * sign2; }
+      const out = [
+        (clamp(a[0], 0, 255) & ~1) | (red(c) & 1),
+        (clamp(a[1], 0, 255) & ~1) | (green(c) & 1),
+        (clamp(a[2], 0, 255) & ~1) | (blue(c) & 1)
+      ];
+      if (out[0] + out[1] + out[2] < 48) return rgb(out[0] + 32, out[1] + 32, out[2] + 32);
+      return fromArray(out);
+    }
+    function deathTransfer(oldColor, newColor, groupMask) {
+      let r = red(newColor), g = green(newColor), b = blue(newColor);
+      const or = red(oldColor), og = green(oldColor), ob = blue(oldColor);
+      if (groupMask & 0xFF0000) {
+        if (el.redBlue.checked) b |= or >> 1;
+        if (el.redGreen.checked) g |= or >> 1;
+      }
+      if (groupMask & 0x00FF00) {
+        if (el.greenRed.checked) r |= og >> 1;
+        if (el.greenBlue.checked) b |= og >> 1;
+      }
+      if (groupMask & 0x0000FF) {
+        if (el.blueGreen.checked) g |= ob >> 1;
+        if (el.blueRed.checked) r |= ob >> 1;
+      }
+      return rgb(r, g, b);
+    }
+
+    function collectCandidateData(i, x, y, considered, sliceMask) {
+      const counts = [];
+      const nonzeroUniverses = [];
+      const parentMaskByLiveNeighbor = { mask: 0 };
+      for (const u of considered) {
+        let count = 0;
+        for (const [dx, dy] of neighborhoods[u].offsets) {
+          const ni = idx(x + dx, y + dy);
+          if (ni >= 0 && (aliveBits[ni] & sliceMask)) {
+            count++;
+            parentMaskByLiveNeighbor.mask |= masks[ni] || (1 << u);
+          }
+        }
+        counts.push(count);
+        if (count) nonzeroUniverses.push(u);
+      }
+      const mateColors = [];
+      const mateNeighborhoods = el.sliceInteraction.value === "isolated"
+        ? considered.map(u => neighborhoods[u])
+        : neighborhoods;
+      for (const nbh of mateNeighborhoods) {
+        for (const [dx, dy] of nbh.offsets) {
+          const ni = idx(x + dx, y + dy);
+          if (ni >= 0 && colors[ni] && (aliveBits[ni] & sliceMask || el.sliceInteraction.value !== "isolated")) mateColors.push(colors[ni]);
+        }
+      }
+      return { counts, nonzeroUniverses, parentMask: parentMaskByLiveNeighbor.mask, mateColors };
+    }
+    function lineageForBirth(oldMask, nonzeroUniverses, parentMask) {
+      switch (el.newbornLineage.value) {
+        case "all": return allMask();
+        case "parents": return parentMask || allMask();
+        case "candidate": return oldMask || allMask();
+        default:
+          return nonzeroUniverses.length === 1 ? (1 << nonzeroUniverses[0]) >>> 0 : allMask();
+      }
+    }
+    function stepWorld() {
+      const birthRule = parseRule(el.birthRule.value, [3]);
+      const survivalRule = parseRule(el.survivalRule.value, [2, 3]);
+      const sliceInfo = stateSlices({ useRuntimeOrigin: true });
+      const slices = sliceInfo.slices;
+      const processedMask = sliceInfo.processedMask & FULL;
+      const preserveInactive = el.sliceMode.value === "bits" && el.sliceSchedule.value === "moving";
+      lastSliceInfo = sliceInfo;
+      if (preserveInactive || el.residueMode.value === "preserve") nextColors.set(colors);
+      else if (el.residueMode.value === "fade") {
+        for (let i = 0; i < N; i++) nextColors[i] = cellAlive(i) ? 0 : faded(colors[i], .86);
+      } else nextColors.fill(0);
+      if (preserveInactive) nextAliveBits.set(aliveBits);
+      else nextAliveBits.fill(0);
+      if (preserveInactive) nextMasks.set(masks);
+      else nextMasks.fill(0);
+      stats = { births: 0, deaths: 0, survivals: 0, live: 0 };
+
+      const candidates = new Set();
+      for (let i = 0; i < N; i++) {
+        if (!cellAlive(i)) continue;
+        const x = i % W, y = Math.floor(i / W);
+        candidates.add(i);
+        for (const u of activeUniverses(maskAt(i))) {
+          for (const [dx, dy] of neighborhoods[u].offsets) {
+            const ni = idx(x + dx, y + dy);
+            if (ni >= 0) candidates.add(ni);
+            const ri = idx(x - dx, y - dy);
+            if (ri >= 0) candidates.add(ri);
+          }
+        }
+      }
+
+      let checksum = 3.141592653589793;
+      for (const i of candidates) {
+        const x = i % W, y = Math.floor(i / W);
+        const oldColor = colors[i];
+        const oldAliveBits = aliveBits[i] & FULL;
+        const oldAlive = oldAliveBits !== 0;
+        const oldMask = maskAt(i);
+        const considered = activeUniverses(oldMask);
+        let newColor = preserveInactive ? (oldColor & ~processedMask) : 0;
+        let newAliveMask = preserveInactive ? (oldAliveBits & ~processedMask) : 0;
+        let born = false;
+        let survived = false;
+        let birthColor = null;
+        let bornMask = 0;
+
+        for (const slice of slices) {
+          const groupMask = slice.mask & FULL;
+          const data = collectCandidateData(i, x, y, considered, groupMask);
+          const census = resolveConsensus(data.counts, birthRule, survivalRule);
+          const isBirth = census === "BIRTH" || birthRule.has(census);
+          const isSurvival = census === "SURVIVAL" || survivalRule.has(census);
+          const thisBornMask = lineageForBirth(oldMask, data.nonzeroUniverses, data.parentMask);
+          const groupAlive = (oldAliveBits & groupMask) !== 0;
+          checksum = (checksum * 1.0001 + new Set(data.counts.filter(Boolean)).size + Number(groupAlive)) % Math.max(1, N);
+          if (!groupAlive && isBirth) {
+            if (birthColor == null || el.sliceInteraction.value === "strong") {
+              birthColor = chooseBirthColor(data.mateColors);
+              const cpu = clamp(numInput(el.cpuBirths, 15), -100, 100);
+              if (cpu && data.nonzeroUniverses.length === 1) {
+                birthColor = blendColors(birthColor, universalColor(data.nonzeroUniverses[0]), cpu / 100);
+              }
+            }
+            let chunk = birthColor & groupMask;
+            if (!chunk) chunk = rotateIntoGroup(birthColor, groupMask);
+            if (!chunk) chunk = FULL & groupMask;
+            newColor = (newColor & ~groupMask) | chunk;
+            newAliveMask |= groupMask;
+            bornMask |= thisBornMask;
+            born = true;
+            stats.births++;
+          } else if (groupAlive && isSurvival) {
+            let chunk = mutateColor(oldColor) & groupMask;
+            if (!chunk) chunk = oldColor & groupMask;
+            if (!chunk) chunk = FULL & groupMask;
+            newColor = (newColor & ~groupMask) | chunk;
+            newAliveMask |= groupMask;
+            survived = true;
+            stats.survivals++;
+          } else if (groupAlive) {
+            newColor = deathTransfer(oldColor, newColor, groupMask);
+            stats.deaths++;
+          }
+        }
+
+        if (survived) {
+          nextColors[i] = newColor || oldColor || FULL;
+          nextAliveBits[i] = newAliveMask || oldAliveBits;
+          nextMasks[i] = oldMask | bornMask;
+        } else if (born) {
+          nextColors[i] = newColor || birthColor || FULL;
+          nextAliveBits[i] = newAliveMask || (nextColors[i] & FULL) || FULL;
+          nextMasks[i] = bornMask || allMask();
+        } else if (preserveInactive && newAliveMask) {
+          nextColors[i] = newColor;
+          nextAliveBits[i] = newAliveMask;
+          nextMasks[i] = oldMask;
+        } else {
+          nextColors[i] = newColor;
+          nextAliveBits[i] = 0;
+          nextMasks[i] = 0;
+        }
+      }
+
+      [colors, nextColors] = [nextColors, colors];
+      [aliveBits, nextAliveBits] = [nextAliveBits, aliveBits];
+      [masks, nextMasks] = [nextMasks, masks];
+      generation++;
+      if (el.sliceMode.value === "bits" && el.sliceSchedule.value === "moving") {
+        sliceOriginCurrent = mod(sliceOriginCurrent + sliceInfo.advance, 24);
+      }
+      updateStagnation(checksum);
+      render();
+    }
+    function updateStagnation(checksum) {
+      if (!el.restartStagnant.checked) return;
+      const sig = `${checksum.toFixed(4)}:${stats.births}:${stats.deaths}:${stats.survivals}`;
+      if (signatureDeque.includes(sig)) stagnationCount++;
+      else {
+        signatureDeque.push(sig);
+        if (signatureDeque.length > W + H) signatureDeque.shift();
+        stagnationCount = 0;
+      }
+      if (stagnationCount > 6) seedWorld();
+    }
+
+    function selectedClusters() {
+      const clusters = [];
+      if (el.uBlinker.checked) clusters.push([[0, 1], [0, 0], [0, -1]]);
+      if (el.uRPent.checked) clusters.push([[0, 1], [1, 1], [-1, 0], [0, 0], [0, -1]]);
+      if (el.uGlider0.checked) clusters.push([[-1, -1], [0, -1], [1, -1], [1, 0], [0, 1]]);
+      if (el.uGlider1.checked) clusters.push([[-1, -1], [0, -1], [0, 0], [1, 0], [-1, 1]]);
+      if (el.uAcorn.checked) clusters.push([[-3, 1], [-2, 1], [-2, -1], [0, 0], [1, 1], [2, 1], [3, 1]]);
+      if (el.uTen.checked) clusters.push([[-3, 2], [-2, 3], [-2, 2], [-2, 1], [0, 2], [0, 1], [0, 0], [2, -1], [2, -2], [4, -2]]);
+      if (el.uTPent.checked) clusters.push([[-1, 0], [0, 0], [1, 0], [0, 1], [0, 2]]);
+      if (el.uQPent.checked) clusters.push([[-2, 0], [-1, 0], [0, 0], [1, 0], [1, -1]]);
+      if (el.uOPent.checked) clusters.push([[-2, 0], [-1, 0], [0, 0], [1, 0], [2, 0]]);
+      if (el.uXPent.checked) clusters.push([[-1, 0], [0, -1], [0, 0], [1, 0], [0, 1]]);
+      return clusters.length ? clusters : [[[0, 0]]];
+    }
+    function torusDistance(ax, ay, bx, by) {
+      const dx = Math.min(Math.abs(ax - bx), W - Math.abs(ax - bx));
+      const dy = Math.min(Math.abs(ay - by), H - Math.abs(ay - by));
+      return Math.hypot(dx, dy);
+    }
+    function setSeedCell(x, y, color, universeNumber, seedNumber = 0, aliveMask = null) {
+      const i = idx(x, y);
+      if (i < 0) return;
+      colors[i] = color & FULL;
+      aliveBits[i] = aliveMask == null ? seedAliveMask(color, seedNumber) : aliveMask;
+      masks[i] = universeNumber == null ? allMask() : (1 << universeNumber) >>> 0;
+    }
+    function projectedSeedPoint(originX, originY, lx, ly, universeNumber, directionIndex) {
+      const nbh = neighborhoods[universeNumber];
+      const sides = Math.max(1, nbh.sides || nbh.offsets.length);
+      const rns0 = nbh.offsets[mod(directionIndex, sides)];
+      const rns1 = nbh.offsets[mod(directionIndex + 1, sides)];
+      return [
+        Math.round(lx * rns0[0] + ly * rns1[0] + originX),
+        Math.round(ly * rns1[1] + lx * rns0[1] + originY)
+      ];
+    }
+    function addProjectedShape(originX, originY, shape, color, universeNumber, directionIndex, seedNumber = 0) {
+      const liveMask = seedAliveMask(color, seedNumber);
+      for (const [lx, ly] of shape) {
+        const [x, y] = projectedSeedPoint(originX, originY, lx, ly, universeNumber, directionIndex);
+        setSeedCell(x, y, color, universeNumber, seedNumber, liveMask);
+      }
+    }
+    function addBitGliderPack(sampleUniverses = false) {
+      calculateNeighborhoods();
+      colors.fill(0);
+      aliveBits.fill(0);
+      masks.fill(0);
+      generation = 0;
+      sliceOriginCurrent = intInput(el.sliceOrigin, 0, 23, 0);
+      const palette = [0xFFFFFF, 0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00, 0x00FFFF, 0xFF00FF, 0xFFC878, 0x78C8FF, 0xC8FF78, 0xC878FF, 0xFF78C8];
+      const glider = [[1, 0], [2, 1], [0, 2], [1, 2], [2, 2]];
+      const n = universeCount();
+      const sides = intInput(el.sides, 3, 24, 4);
+      const minDistance = Math.max(10, radiusUsed * 4);
+      const seeds = [];
+      const target = 12;
+      for (let attempt = 0; seeds.length < target && attempt < 700; attempt++) {
+        const x = 8 + randInt(0, Math.max(0, W - 16));
+        const y = 8 + randInt(0, Math.max(0, H - 16));
+        if (seeds.some(seed => torusDistance(x, y, seed.x, seed.y) < minDistance)) continue;
+        const seedIndex = seeds.length;
+        seeds.push({
+          x, y,
+          universe: sampleUniverses ? seedIndex % n : randInt(0, n - 1),
+          direction: sampleUniverses ? seedIndex % sides : randInt(0, sides - 1),
+          color: palette[seedIndex % palette.length]
+        });
+      }
+      for (let i = 0; i < seeds.length; i++) {
+        const seed = seeds[i];
+        addProjectedShape(seed.x, seed.y, glider, seed.color, seed.universe, seed.direction, i);
+      }
+      render();
+    }
+    function addBitBlinker() {
+      calculateNeighborhoods();
+      colors.fill(0);
+      aliveBits.fill(0);
+      masks.fill(0);
+      generation = 0;
+      sliceOriginCurrent = intInput(el.sliceOrigin, 0, 23, 0);
+      const universe = 0;
+      const direction = 0;
+      addProjectedShape(Math.floor(W / 2), Math.floor(H / 2), [[0, 0], [1, 0], [2, 0]], FULL, universe, direction, 0);
+      render();
+    }
+    function randomizeBitSeed(colorful) {
+      calculateNeighborhoods();
+      colors.fill(0);
+      aliveBits.fill(0);
+      masks.fill(0);
+      generation = 0;
+      sliceOriginCurrent = intInput(el.sliceOrigin, 0, 23, 0);
+      const density = clamp(numInput(el.density, 22), 0, 100) / 100;
+      const n = universeCount();
+      let seedNumber = 0;
+      for (let i = 0; i < N; i++) {
+        if (rng() >= density) continue;
+        const color = colorful ? randInt(1, FULL) : FULL;
+        colors[i] = color;
+        aliveBits[i] = seedAliveMask(color, seedNumber);
+        masks[i] = (1 << randInt(0, n - 1)) >>> 0;
+        seedNumber++;
+      }
+      render();
+    }
+    function clearWorld() {
+      colors.fill(0);
+      aliveBits.fill(0);
+      masks.fill(0);
+      generation = 0;
+      stats = { births: 0, deaths: 0, survivals: 0, live: 0 };
+      sliceOriginCurrent = intInput(el.sliceOrigin, 0, 23, 0);
+      render();
+    }
+    function randomColorChoices() {
+      const bias = randInt(0, 6);
+      const out = [];
+      const rt = randInt(64, 192), gt = randInt(64, 192), bt = randInt(64, 192);
+      const total = randInt(1, 3);
+      while (out.length < total) {
+        let r = randInt(0, 255), g = randInt(0, 255), b = randInt(0, 255);
+        if (bias === 5) { r = randInt(rt, 255); g = randInt(0, gt); b = randInt(bt, 255); }
+        else if (bias === 4) b = randInt(bt, 255);
+        else if (bias === 3) { r = randInt(0, rt); g = randInt(gt, 255); b = randInt(bt, 255); }
+        else if (bias === 2) g = randInt(gt, 255);
+        else if (bias === 1) { r = randInt(rt, 255); g = randInt(gt, 255); b = randInt(0, bt); }
+        else if (bias === 0) r = randInt(rt, 255);
+        else if (rng() < .5) r |= 128; else b |= 128;
+        out.push(rgb(r, g, b));
+      }
+      return out;
+    }
+    function weightedSeedColor(uni, item, cell, rnd) {
+      let wu = Math.max(0, numInput(el.colorByUniverse, 7));
+      let wi = Math.max(0, numInput(el.colorByItem, 5));
+      let wc = Math.max(0, numInput(el.colorByCell, 2));
+      let wr = Math.max(0, numInput(el.randomColors, 3));
+      let wd = Math.max(0, numInput(el.desaturation, 0));
+      if (wu + wi + wc + wr + wd === 0) wd = 1;
+      const total = wu + wi + wc + wr + wd;
+      return rgb(
+        Math.round((red(uni) * wu + red(item) * wi + red(cell) * wc + red(rnd) * wr + 128 * wd) / total),
+        Math.round((green(uni) * wu + green(item) * wi + green(cell) * wc + green(rnd) * wr + 128 * wd) / total),
+        Math.round((blue(uni) * wu + blue(item) * wi + blue(cell) * wc + blue(rnd) * wr + 128 * wd) / total)
+      );
+    }
+    function seedAliveMask(color, clusterNumber = 0) {
+      if (!bitDifferentiationEnabled()) return FULL;
+      const mode = el.seedBits.value;
+      if (mode === "color") return (color & FULL) || FULL;
+      if (mode === "current") return bitMaskFromPositions(sliceOriginCurrent, intInput(el.bitsPerSlice, -24, 24, 2));
+      if (mode === "rotating") {
+        const origin = intInput(el.sliceOrigin, 0, 23, 0);
+        const advance = intInput(el.sliceAdvance, -24, 24, 1) || 1;
+        return bitMaskFromPositions(mod(origin + clusterNumber * advance, 24), intInput(el.bitsPerSlice, -24, 24, 2));
+      }
+      if (mode === "random") return bitMaskFromPositions(randInt(0, 23), intInput(el.bitsPerSlice, -24, 24, 2));
+      return FULL;
+    }
+    function seedWorld() {
+      calculateNeighborhoods();
+      colors.fill(0);
+      aliveBits.fill(0);
+      masks.fill(0);
+      generation = 0;
+      stats = { births: 0, deaths: 0, survivals: 0, live: 0 };
+      signatureDeque = [];
+      stagnationCount = 0;
+      sliceOriginCurrent = intInput(el.sliceOrigin, 0, 23, 0);
+      sineAngle = Math.asin(clamp(numInput(el.tiltStart, 20) / 100, -1, 1));
+      const clusters = selectedClusters();
+      const count = intInput(el.startThings, 1, 160, 12);
+      const n = universeCount();
+      const sides = intInput(el.sides, 3, 24, 4);
+      const hueDivisor = Math.max(count, n) / Math.max(1, Math.min(count, n));
+      let cellNumber = 0;
+
+      for (let clusterNumber = 0; clusterNumber < count; clusterNumber++) {
+        const cluster = clusters[clusterNumber % clusters.length];
+        const itemRotationOffset = numInput(el.itemRotation, 90) * count / -360;
+        const directionToPoint = trunc(mod((clusterNumber + itemRotationOffset) * n * sides / count, n * sides));
+        const crudeDirection = sides - Math.floor(directionToPoint / n) - 1;
+        const universeNumber = n - (directionToPoint % n) - 1;
+        const nbh = neighborhoods[universeNumber];
+        const offsets = nbh.offsets;
+        const basisCount = Math.max(1, nbh.sides || sides);
+        const rns0 = offsets[mod(crudeDirection, basisCount)];
+        const rns1 = offsets[mod(crudeDirection + 1, basisCount)];
+        const angle = TAU * clusterNumber / count;
+        const ring = clusterNumber % 3;
+        let destx = Math.round(W / 2 + Math.sin(angle) * W / ([3.50, 2.70, 2.20][ring] + Math.max(0, 6 - count)));
+        let desty = Math.round(H / 2 + Math.cos(angle) * H / ([4.05, 3.35, 2.90][ring] + Math.max(0, 6 - count)));
+        const randomPlacement = clamp(numInput(el.randomPlacement, 0), 0, 100);
+        const rx = randInt(Math.floor(W * 2 / 7), Math.floor(W * 5 / 7));
+        const ry = randInt(Math.floor(H * 2 / 7), Math.floor(H * 5 / 7));
+        if (count === 1) {
+          destx = Math.round((W / 2 * (100 - randomPlacement) + rx * randomPlacement) / 100);
+          desty = Math.round((H / 2 * (100 - randomPlacement) + ry * randomPlacement) / 100);
+        } else {
+          destx = Math.round((destx * (100 - randomPlacement) + rx * randomPlacement) / 100);
+          desty = Math.round((desty * (100 - randomPlacement) + ry * randomPlacement) / 100);
+        }
+        const uniColor = universalColor(universeNumber);
+        const itemColor = hsv(numInput(el.hueOffset, -70) / 100 + clusterNumber / count, 1, .75);
+        const choices = randomColorChoices();
+        for (const [cx, cy] of cluster) {
+          cellNumber++;
+          const cellHue = (cellNumber / hueDivisor) % 1;
+          const cellColor = hsv(numInput(el.hueOffset, -70) / 100 + cellHue, 1, .75);
+          const c = weightedSeedColor(uniColor, itemColor, cellColor, choice(choices));
+          const x = Math.round(cx * rns0[0] + cy * rns1[0] + destx);
+          const y = Math.round(cy * rns1[1] + cx * rns0[1] + desty);
+          const i = idx(x, y);
+          if (i >= 0) {
+            colors[i] = c;
+            aliveBits[i] = seedAliveMask(c, clusterNumber);
+            masks[i] = (1 << universeNumber) >>> 0;
+          }
+        }
+      }
+      render();
+    }
+
+    function drawStateImage() {
+      const data = image.data;
+      let live = 0;
+      for (let i = 0; i < N; i++) {
+        let c = colors[i] || 0;
+        if (el.renderMode.value === "alive") c = cellAlive(i) ? (aliveBits[i] & FULL) || FULL : 0;
+        else if (el.renderMode.value === "lineage") {
+          if (cellAlive(i)) {
+            const us = activeUniverses(masks[i] || allMask());
+            c = universalColor(us[0] || 0);
+          } else c = 0;
+        }
+        if (cellAlive(i)) live++;
+        const p = i * 4;
+        data[p] = red(c);
+        data[p + 1] = green(c);
+        data[p + 2] = blue(c);
+        data[p + 3] = 255;
+      }
+      stats.live = live;
+      sourceCtx.putImageData(image, 0, 0);
+    }
+    function drawTile(target, img, x, y, w, h, flipX, flipY) {
+      target.save();
+      target.translate(x + (flipX ? w : 0), y + (flipY ? h : 0));
+      target.scale(flipX ? -1 : 1, flipY ? -1 : 1);
+      target.drawImage(img, 0, 0, w, h);
+      target.restore();
+    }
+    function nearestNeighborDistance() {
+      let nearest = Infinity;
+      for (const [dx, dy] of allOffsets) {
+        const d = Math.hypot(dx, dy);
+        if (d > 0 && d < nearest) nearest = d;
+      }
+      return Number.isFinite(nearest) ? nearest : 1;
+    }
+    function virtualHaloRadii() {
+      const d = nearestNeighborDistance();
+      const orthTouch = d * .5;
+      const diagonalTouch = d * Math.SQRT2 * .5;
+      const ghostMax = diagonalTouch * 1.35;
+      const glassMax = diagonalTouch;
+      const glassRadius = glassMax * clamp(Number(el.spread.value) / 100, 0, 1);
+      const ghostRadius = glassRadius + Math.max(0, ghostMax - glassRadius) * clamp(Number(el.haloDensity.value) / 100, 0, 1);
+      return { glassRadius, ghostRadius };
+    }
+    function drawGlassCell(target, cx, cy, r, alpha, rr, gg, bb) {
+      if (r <= 0 || alpha <= 0) return;
+      target.fillStyle = `rgba(${rr},${gg},${bb},${alpha})`;
+      target.beginPath();
+      target.arc(cx, cy, r, 0, TAU);
+      target.fill();
+    }
+    function drawGhostCell(target, cx, cy, innerRadius, outerRadius, alpha, rr, gg, bb) {
+      if (outerRadius <= innerRadius + .001 || alpha <= 0) return;
+      const innerStop = clamp(innerRadius / outerRadius, 0, .995);
+      const gradient = target.createRadialGradient(cx, cy, 0, cx, cy, outerRadius);
+      gradient.addColorStop(0, `rgba(${rr},${gg},${bb},${alpha * .45})`);
+      gradient.addColorStop(innerStop, `rgba(${rr},${gg},${bb},${alpha})`);
+      gradient.addColorStop(1, `rgba(${rr},${gg},${bb},0)`);
+      target.fillStyle = gradient;
+      target.beginPath();
+      target.arc(cx, cy, outerRadius, 0, TAU);
+      target.fill();
+    }
+    function drawHaloLayer(target, sceneW, sceneH, borderX, borderY) {
+      const { glassRadius, ghostRadius } = virtualHaloRadii();
+      const glassAlpha = clamp(Number(el.haloOpacity.value) / 100, 0, 1) * .70;
+      const ghostAlpha = clamp(Number(el.ghostOpacity.value) / 100, 0, 1) * 1.10;
+      if ((glassRadius <= 0 || glassAlpha <= 0) && (ghostRadius <= glassRadius + .001 || ghostAlpha <= 0)) return false;
+      target.globalCompositeOperation = "lighter";
+      const tiles = el.mirrorBorders.checked
+        ? [-1, 0, 1].flatMap(tx => [-1, 0, 1].map(ty => [tx, ty]))
+        : [[0, 0]];
+      const data = image.data;
+      for (let i = 0; i < N; i++) {
+        const p = i * 4;
+        const rr = data[p], gg = data[p + 1], bb = data[p + 2];
+        if (!(rr || gg || bb)) continue;
+        const x = i % W, y = Math.floor(i / W);
+        for (const [tx, ty] of tiles) {
+          const flipX = tx !== 0 && Math.abs(tx) % 2 === 1;
+          const flipY = ty !== 0 && Math.abs(ty) % 2 === 1;
+          const px = borderX + tx * W + (flipX ? W - 1 - x : x) + .5;
+          const py = borderY + ty * H + (flipY ? H - 1 - y : y) + .5;
+          if (px + ghostRadius < 0 || py + ghostRadius < 0 || px - ghostRadius > sceneW || py - ghostRadius > sceneH) continue;
+          drawGhostCell(target, px, py, glassRadius, ghostRadius, ghostAlpha, rr, gg, bb);
+          drawGlassCell(target, px, py, glassRadius, glassAlpha, rr, gg, bb);
+        }
+      }
+      target.globalCompositeOperation = "source-over";
+      return true;
+    }
+    function buildScene() {
+      const borderX = Math.ceil(W * .25);
+      const borderY = Math.ceil(H * .25);
+      const sceneW = W + borderX * 2;
+      const sceneH = H + borderY * 2;
+      sceneCanvas.width = sceneW;
+      sceneCanvas.height = sceneH;
+      haloCanvas.width = sceneW;
+      haloCanvas.height = sceneH;
+      sceneCtx.imageSmoothingEnabled = false;
+      sceneCtx.clearRect(0, 0, sceneW, sceneH);
+      if (el.mirrorBorders.checked) {
+        for (let tx = -1; tx <= 1; tx++) {
+          for (let ty = -1; ty <= 1; ty++) {
+            drawTile(sceneCtx, sourceCanvas, borderX + tx * W, borderY + ty * H, W, H, tx !== 0 && Math.abs(tx) % 2 === 1, ty !== 0 && Math.abs(ty) % 2 === 1);
+          }
+        }
+      } else {
+        sceneCtx.drawImage(sourceCanvas, borderX, borderY);
+      }
+      return { canvas: sceneCanvas, sceneW, sceneH, borderX, borderY };
+    }
+    function resizeDisplayCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+      const w = Math.max(1, Math.floor(canvas.clientWidth * dpr));
+      const h = Math.max(1, Math.floor(canvas.clientHeight * dpr));
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
+      }
+      view.dpr = dpr;
+      view.cw = w;
+      view.ch = h;
+    }
+    function render() {
+      resizeDisplayCanvas();
+      drawStateImage();
+      const scene = buildScene();
+      ctx.save();
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.imageSmoothingEnabled = el.renderMode.value !== "crisp";
+      const baseScale = Math.max(canvas.width / scene.sceneW, canvas.height / scene.sceneH);
+      const scale = baseScale * (Number(el.oversize.value) / 100);
+      const angle = (el.wobble.checked ? numInput(el.maxTilt, 10) * Math.sin(sineAngle) : 0) * Math.PI / 180;
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate(angle);
+      ctx.scale(scale, scale);
+      ctx.translate(-scene.sceneW / 2, -scene.sceneH / 2);
+      ctx.drawImage(scene.canvas, 0, 0);
+      if (el.renderMode.value === "python" || el.renderMode.value === "soft") {
+        drawHaloLayer(ctx, scene.sceneW, scene.sceneH, scene.borderX, scene.borderY);
+      }
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = "source-over";
+      ctx.restore();
+      view = { ...view, angle, scale, sceneW: scene.sceneW, sceneH: scene.sceneH, borderX: scene.borderX, borderY: scene.borderY };
+      updateHud();
+    }
+    function updateHud() {
+      updateControlAvailability();
+      stateSlices({ useRuntimeOrigin: true });
+      el.modeOut.textContent = running ? "Running" : "Paused";
+      el.generationOut.textContent = generation;
+      el.liveOut.textContent = stats.live;
+      el.birthOut.textContent = stats.births;
+      el.deathOut.textContent = stats.deaths;
+      el.survivalOut.textContent = stats.survivals;
+      el.play.textContent = running ? "Pause" : "Play";
+      el.paintSwatch.style.background = hex(paintColor);
+      el.paintColor.value = hex(paintColor);
+    }
+
+    function screenToCell(event) {
+      const rect = canvas.getBoundingClientRect();
+      const sx = (event.clientX - rect.left) * view.dpr;
+      const sy = (event.clientY - rect.top) * view.dpr;
+      let dx = sx - view.cw / 2;
+      let dy = sy - view.ch / 2;
+      const ca = Math.cos(-view.angle);
+      const sa = Math.sin(-view.angle);
+      const rx = dx * ca - dy * sa;
+      const ry = dx * sa + dy * ca;
+      const sceneX = rx / view.scale + view.sceneW / 2;
+      const sceneY = ry / view.scale + view.sceneH / 2;
+      return wrappedXY(Math.floor(sceneX - view.borderX), Math.floor(sceneY - view.borderY));
+    }
+    function parseHexColor(value) {
+      const m = String(value).trim().match(/^#?([0-9a-f]{6})$/i);
+      return m ? parseInt(m[1], 16) >>> 0 : paintColor;
+    }
+    function paintAt(x, y, erase = false) {
+      const brush = intInput(el.brush, 0, 12, 0);
+      const selected = el.paintUniverse.value;
+      const mask = selected === "all" ? allMask() : (1 << Number(selected)) >>> 0;
+      for (let yy = -brush; yy <= brush; yy++) {
+        for (let xx = -brush; xx <= brush; xx++) {
+          if (xx * xx + yy * yy > brush * brush) continue;
+          const i = idx(x + xx, y + yy);
+          if (i < 0) continue;
+          if (erase) {
+            colors[i] = 0; aliveBits[i] = 0; masks[i] = 0;
+          } else if (el.paintMode.value === "residue") {
+            colors[i] = paintColor; aliveBits[i] = 0; masks[i] = 0;
+          } else if (el.paintMode.value === "color-only") {
+            colors[i] = paintColor;
+          } else {
+            colors[i] = paintColor; aliveBits[i] = paintColor || FULL; masks[i] = mask;
+          }
+        }
+      }
+      render();
+    }
+    function pickAt(x, y) {
+      const i = idx(x, y);
+      if (i < 0) return;
+      paintColor = colors[i] || FULL;
+      if (cellAlive(i) && masks[i]) {
+        const u = activeUniverses(masks[i])[0];
+        if (u != null) el.paintUniverse.value = String(u);
+      }
+      updateHud();
+    }
+
+    function updatePaintUniverses() {
+      const old = el.paintUniverse.value;
+      el.paintUniverse.innerHTML = '<option value="all">all receptive</option>';
+      for (let i = 0; i < universeCount(); i++) {
+        const opt = document.createElement("option");
+        opt.value = String(i);
+        opt.textContent = `universe ${i}`;
+        el.paintUniverse.appendChild(opt);
+      }
+      el.paintUniverse.value = [...el.paintUniverse.options].some(o => o.value === old) ? old : "all";
+    }
+    function setElementContextDisabled(element, disabled) {
+      if (!element) return;
+      element.disabled = disabled;
+      const host = element.closest?.("[data-bit-control], [data-geometry-control]");
+      if (host) host.classList.toggle("is-disabled-context", disabled);
+    }
+    function updateControlAvailability() {
+      const geometryOn = geometryDifferentiationEnabled();
+      for (const id of ["universes", "newbornLineage", "cpuBirths", "colorByUniverse", "paintUniverse"]) {
+        setElementContextDisabled(el[id], !geometryOn);
+      }
+
+      const bitOn = bitDifferentiationEnabled();
+      const mode = el.sliceMode.value;
+      setElementContextDisabled(el.sliceMode, !bitOn);
+      setElementContextDisabled(el.sliceInteraction, !bitOn || mode === "full");
+      setElementContextDisabled(el.seedBits, !bitOn);
+      for (const id of ["sliceSchedule", "bitsPerSlice", "sliceAdvance", "sliceOrigin"]) {
+        setElementContextDisabled(el[id], !bitOn || mode !== "bits");
+      }
+      setElementContextDisabled(el.activeSlices, !bitOn || mode !== "bits" || el.sliceSchedule.value === "moving");
+      for (const id of ["sepR", "sepG", "sepB"]) {
+        setElementContextDisabled(el[id], !bitOn || mode !== "rgb");
+      }
+      document.querySelectorAll("[data-bit-preset]").forEach(button => {
+        button.disabled = !bitOn;
+        button.closest?.("[data-bit-control]")?.classList.toggle("is-disabled-context", !bitOn);
+      });
+    }
+    function setSettingsOpen(open) {
+      document.body.classList.toggle("settings-open", open);
+      if (!open) render();
+    }
+    function setRunning(value) {
+      running = value;
+      updateHud();
+    }
+    function advance(n) {
+      const wasRunning = running;
+      running = false;
+      for (let i = 0; i < n; i++) stepWorld();
+      running = wasRunning && n === 0;
+      updateHud();
+    }
+
+    function resetDefaults() {
+      el.consensus.value = "-1";
+      el.birthRule.value = "3";
+      el.survivalRule.value = "2,3";
+      el.universes.value = 3;
+      el.useGeometryUniverses.checked = true;
+      el.sides.value = 4;
+      el.startThings.value = 12;
+      el.radiusAugment.value = 1;
+      el.corners.checked = true;
+      el.wrapMode.value = "python";
+      el.tiltSpeed.value = 13;
+      el.tiltStart.value = 20;
+      el.maxTilt.value = 10;
+      el.sepR.checked = el.sepG.checked = el.sepB.checked = false;
+      el.useBitLayers.checked = true;
+      el.sliceMode.value = "full";
+      el.sliceSchedule.value = "static";
+      el.bitsPerSlice.value = 2;
+      el.sliceAdvance.value = 1;
+      el.sliceOrigin.value = 0;
+      el.activeSlices.value = 24;
+      el.sliceInteraction.value = "weak";
+      el.seedBits.value = "full";
+      el.hueOffset.value = -70;
+      el.cpuBirths.value = 15;
+      el.colorByUniverse.value = 7;
+      el.colorByItem.value = 5;
+      el.colorByCell.value = 2;
+      el.randomColors.value = 3;
+      el.desaturation.value = 0;
+      el.survivalMutation.checked = false;
+      el.randomPlacement.value = 0;
+      el.itemRotation.value = 90;
+      el.density.value = 22;
+      el.spread.value = 67;
+      el.haloDensity.value = 100;
+      el.haloOpacity.value = 100;
+      el.ghostOpacity.value = 50;
+      el.oversize.value = 105;
+      for (const id of ["uBlinker", "uGlider0", "uAcorn", "uTen", "uOPent", "uQPent", "uTPent", "uXPent"]) el[id].checked = false;
+      el.uGlider1.checked = true;
+      el.uRPent.checked = true;
+      for (const id of ["redBlue", "redGreen", "greenRed", "greenBlue", "blueGreen", "blueRed"]) el[id].checked = false;
+      el.profileOut.textContent = "Default profile restored.";
+    }
+    function randomizeSettings() {
+      const style = el.randomStyle.value;
+      if (style === "mutate") {
+        el.universes.value = clamp(Number(el.universes.value) + randInt(-1, 2), 1, 31);
+        el.sides.value = clamp(Number(el.sides.value) + randInt(-2, 3), 3, 24);
+        el.radiusAugment.value = clamp(Number(el.radiusAugment.value) + randInt(-1, 2), 0, 40);
+        el.randomPlacement.value = clamp(Number(el.randomPlacement.value) + randInt(-20, 25), 0, 100);
+      } else if (style === "wild") {
+        el.sliceMode.value = choice(["full", "rgb", "bits", "bits"]);
+        el.sliceSchedule.value = el.sliceMode.value === "bits" ? choice(["static", "moving", "moving"]) : "static";
+        el.bitsPerSlice.value = choice([-8, -3, -2, -1, 1, 2, 3, 8, 23]);
+        el.sliceAdvance.value = choice([-5, -3, -1, 1, 2, 3, 5]);
+        el.activeSlices.value = randInt(1, 24);
+        el.sliceInteraction.value = choice(["weak", "isolated", "strong"]);
+        el.seedBits.value = choice(["full", "color", "current", "rotating", "random"]);
+        el.universes.value = randInt(1, 18);
+        el.sides.value = randInt(3, 16);
+        el.startThings.value = randInt(1, 80);
+        el.radiusAugment.value = randInt(0, 12);
+        el.consensus.value = choice(["-1", "BIRTH", "SURVIVAL", "min", "max", "sum", "len", "avg", "and", "or", "xor", "py123"]);
+        el.birthRule.value = choice(["3", "2,3,4", "3,4", "3,6", "1,3,5,7", "4,5,6,7,8"]);
+        el.survivalRule.value = choice(["2,3", "3", "4", "1,2,5", "4,5,6,7,8", "1,2,3,4,5,6,7,8"]);
+        el.corners.checked = rng() < .65;
+      } else {
+        el.sliceMode.value = rng() < .72 ? "full" : choice(["rgb", "bits"]);
+        el.sliceSchedule.value = el.sliceMode.value === "bits" ? choice(["static", "moving", "moving"]) : "static";
+        el.bitsPerSlice.value = choice([1, 2, 2, 8, 23]);
+        el.sliceAdvance.value = choice([1, 1, 1, -1, -3]);
+        el.activeSlices.value = el.sliceMode.value === "bits" ? choice([3, 8, 12, 24]) : 24;
+        el.sliceInteraction.value = choice(["weak", "weak", "isolated", "strong"]);
+        el.seedBits.value = el.sliceSchedule.value === "moving" ? choice(["rotating", "current", "color"]) : "full";
+        el.universes.value = randInt(1, randInt(1, 8));
+        el.consensus.value = rng() < .5 ? "-1" : choice(["-1", "BIRTH", "SURVIVAL", "min", "max", "sum", "len", "or", "xor", "py123"]);
+        el.birthRule.value = rng() < .5 ? "3" : choice(["3", "2,3,4", "3,4", "3,6", "3,5,7", "1"]);
+        el.survivalRule.value = rng() < .5 ? "2,3" : choice(["2,3", "4", "3", "2", "", "3,4", "5", "1,2,5"]);
+        el.startThings.value = randInt(1, randInt(1, 20));
+        el.radiusAugment.value = rng() < .5 ? 1 : 0;
+        el.sides.value = clamp(4 + choice([0, 0, 0, 0, 1, -1, -2, -3]) + choice([0, 0, 0, 0, 1, 2, 3, 4]) + choice([0, 0, 0, 0, 0, 0, 0, 1, 2, 3]), 3, 24);
+        el.corners.checked = rng() < .5 && Number(el.sides.value) < randInt(0, 10);
+        el.sepR.checked = rng() < .125;
+        el.sepG.checked = rng() < .125;
+        el.sepB.checked = rng() < .125;
+        el.hueOffset.value = choice([-1, 0, 1]) * choice([randInt(-99, 99), -70]);
+        el.cpuBirths.value = (rng() < .5 ? 50 : 0) + randInt(-50, 50);
+        el.randomPlacement.value = (Number(rng() < .5) + Number(rng() < .5)) * randInt(1, 50);
+        el.itemRotation.value = choice([-1, -.5, 0, .5, 1]) * choice([randInt(0, 360), 90]);
+      }
+      for (const id of ["uBlinker", "uGlider0", "uGlider1", "uAcorn", "uTen", "uOPent", "uQPent", "uRPent", "uTPent", "uXPent"]) el[id].checked = rng() < .5;
+      el.profileOut.textContent = `${style} random profile generated.`;
+      seedWorld();
+    }
+    function applySeed() {
+      const seed = hashSeed(el.seed.value);
+      rng = seededRandom(seed);
+      el.profileOut.textContent = `Seed ${seed} applied.`;
+      seedWorld();
+      rng = Math.random;
+    }
+
+    el.closeSettings.addEventListener("click", () => setSettingsOpen(false));
+    el.fullscreen.addEventListener("click", () => {
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
+      else document.exitFullscreen?.();
+    });
+    el.play.addEventListener("click", () => setRunning(!running));
+    el.step.addEventListener("click", () => { const old = running; running = false; stepWorld(); running = old; updateHud(); });
+    el.restart.addEventListener("click", seedWorld);
+    el.randomize.addEventListener("click", randomizeSettings);
+    el.bitGliders.addEventListener("click", () => addBitGliderPack(false));
+    el.bitSampler.addEventListener("click", () => addBitGliderPack(true));
+    el.bitBlinker.addEventListener("click", addBitBlinker);
+    el.bitRandom.addEventListener("click", () => randomizeBitSeed(false));
+    el.bitRandomColor.addEventListener("click", () => randomizeBitSeed(true));
+    el.clearWorld.addEventListener("click", clearWorld);
+    el.applySeed.addEventListener("click", applySeed);
+    el.defaultProfile.addEventListener("click", () => { resetDefaults(); resizeWorld(); seedWorld(); });
+    document.querySelectorAll("[data-bit-preset]").forEach(button => {
+      button.addEventListener("click", () => {
+        const [count, advance] = button.dataset.bitPreset.split(",");
+        el.sliceMode.value = "bits";
+        el.sliceSchedule.value = "moving";
+        el.bitsPerSlice.value = count;
+        el.sliceAdvance.value = advance;
+        sliceOriginCurrent = intInput(el.sliceOrigin, 0, 23, 0);
+        render();
+      });
+    });
+
+    const restartIds = new Set(["simWidth", "simHeight", "universes", "sides", "radiusAugment", "corners", "startThings", "randomPlacement", "itemRotation", "uBlinker", "uGlider0", "uGlider1", "uAcorn", "uTen", "uOPent", "uQPent", "uRPent", "uTPent", "uXPent"]);
+    for (const input of document.querySelectorAll("input, select")) {
+      input.addEventListener("change", () => {
+        if (input === el.paintColor) {
+          paintColor = parseHexColor(el.paintColor.value);
+          updateHud();
+          return;
+        }
+        if (input === el.useGeometryUniverses) {
+          calculateNeighborhoods();
+          render();
+        } else if (input === el.useBitLayers) {
+          render();
+        } else if (input === el.simWidth || input === el.simHeight) {
+          resizeWorld();
+          seedWorld();
+        } else if (restartIds.has(input.id)) {
+          calculateNeighborhoods();
+          seedWorld();
+        } else if (["universes", "sides", "radiusAugment", "corners"].includes(input.id)) {
+          calculateNeighborhoods();
+          render();
+        } else {
+          render();
+        }
+      });
+    }
+    for (const input of [el.spread, el.haloDensity, el.haloOpacity, el.ghostOpacity, el.oversize]) {
+      input.addEventListener("input", render);
+    }
+    canvas.addEventListener("contextmenu", event => event.preventDefault());
+    canvas.addEventListener("pointerdown", event => {
+      const xy = screenToCell(event);
+      if (!xy) return;
+      if (event.button === 2) pickAt(xy[0], xy[1]);
+      else paintAt(xy[0], xy[1], event.shiftKey);
+    });
+    canvas.addEventListener("pointermove", event => {
+      if (!(event.buttons & 1)) return;
+      const xy = screenToCell(event);
+      if (xy) paintAt(xy[0], xy[1], event.shiftKey);
+    });
+    window.addEventListener("resize", render);
+    window.addEventListener("keydown", event => {
+      if (event.target && ["INPUT", "SELECT", "TEXTAREA"].includes(event.target.tagName)) {
+        if (event.key !== "Enter") return;
+      }
+      if (event.key === "Enter") {
+        event.preventDefault();
+        setSettingsOpen(!document.body.classList.contains("settings-open"));
+      } else if (event.key === " ") {
+        event.preventDefault();
+        setRunning(!running);
+      } else if (/^[0-9]$/.test(event.key) && !running) {
+        event.preventDefault();
+        const n = event.key === "0" ? 10 : Number(event.key);
+        for (let i = 0; i < n; i++) stepWorld();
+      } else if ((event.key === "." || event.key.toLowerCase() === "n") && !running) {
+        event.preventDefault();
+        stepWorld();
+      } else if (event.key.toLowerCase() === "r") {
+        event.preventDefault();
+        if (event.shiftKey) randomizeSettings();
+        else seedWorld();
+      } else if (event.key.toLowerCase() === "f") {
+        event.preventDefault();
+        el.fullscreen.click();
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        if (document.body.classList.contains("settings-open")) setSettingsOpen(false);
+        else if (confirm("Clear and restart the simulation?")) seedWorld();
+      }
+    });
+
+    function loop(time) {
+      const delta = lastRenderTime ? time - lastRenderTime : 16.7;
+      lastRenderTime = time;
+      if (el.wobble.checked) {
+        sineAngle -= Math.PI * numInput(el.tiltSpeed, 13) * delta / 160000;
+      }
+      const ms = 1000 / Number(el.speed.value);
+      if (running && time - lastStepTime >= ms) {
+        stepWorld();
+        lastStepTime = time;
+      } else if (!running || el.wobble.checked) {
+        render();
+      }
+      requestAnimationFrame(loop);
+    }
+
+    resetDefaults();
+    resizeWorld();
+    seedWorld();
+    setSettingsOpen(false);
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
