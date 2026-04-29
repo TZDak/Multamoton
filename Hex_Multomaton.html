@@ -397,7 +397,7 @@
         <div class="row"><label for="haloOpacity">Glass opacity</label><input id="haloOpacity" type="range" min="0" max="100" value="100"></div>
         <div class="row"><label for="haloDensity">Ghost size</label><input id="haloDensity" type="range" min="0" max="100" value="100"></div>
         <div class="row"><label for="ghostOpacity">Ghost opacity</label><input id="ghostOpacity" type="range" min="0" max="100" value="50"></div>
-        <div class="row"><label for="oversize">Scene zoom</label><input id="oversize" type="range" min="105" max="280" value="105"></div>
+        <div class="row"><label for="oversize">Scene zoom</label><input id="oversize" type="range" min="0" max="200" value="100"></div>
         <label class="check"><input id="mirrorBorders" type="checkbox" checked> Mirror border scene</label>
         <label class="check"><input id="wobble" type="checkbox" checked> Wobble display orientation</label>
         <div class="row"><label for="tiltSpeed">Tilt speed</label><input id="tiltSpeed" type="number" value="13"></div>
@@ -1523,6 +1523,25 @@
       view.cw = w;
       view.ch = h;
     }
+    function sceneBoundsAtAngle(scene, angle) {
+      const ca = Math.abs(Math.cos(angle));
+      const sa = Math.abs(Math.sin(angle));
+      return {
+        w: scene.sceneW * ca + scene.sceneH * sa,
+        h: scene.sceneW * sa + scene.sceneH * ca
+      };
+    }
+    function sceneScaleForZoom(scene) {
+      const scaleAngle = el.wobble.checked ? Math.abs(numInput(el.maxTilt, 10)) * Math.PI / 180 : 0;
+      const bounds = sceneBoundsAtAngle(scene, scaleAngle);
+      const fitScale = Math.min(canvas.width / bounds.w, canvas.height / bounds.h);
+      const fillScale = Math.max(canvas.width / bounds.w, canvas.height / bounds.h);
+      const zoom = clamp(Number(el.oversize.value), 0, 200);
+      if (zoom <= 100) {
+        return fitScale + (fillScale - fitScale) * (zoom / 100);
+      }
+      return fillScale * (1 + (zoom - 100) / 50);
+    }
     function render() {
       resizeDisplayCanvas();
       drawStateImage();
@@ -1531,8 +1550,7 @@
       ctx.fillStyle = "#000";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.imageSmoothingEnabled = el.renderMode.value !== "crisp";
-      const baseScale = Math.min(canvas.width / scene.sceneW, canvas.height / scene.sceneH);
-      const scale = baseScale * (Number(el.oversize.value) / 100);
+      const scale = sceneScaleForZoom(scene);
       const angle = (el.wobble.checked ? numInput(el.maxTilt, 10) * Math.sin(sineAngle) : 0) * Math.PI / 180;
       ctx.translate(canvas.width / 2, canvas.height / 2);
       ctx.rotate(angle);
@@ -1725,7 +1743,7 @@
       el.haloDensity.value = 100;
       el.haloOpacity.value = 100;
       el.ghostOpacity.value = 50;
-      el.oversize.value = 105;
+      el.oversize.value = 100;
       for (const id of ["uBlinker", "uGlider0", "uAcorn", "uTen", "uOPent", "uQPent", "uTPent", "uXPent"]) el[id].checked = false;
       el.uGlider1.checked = true;
       el.uRPent.checked = true;
