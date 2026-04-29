@@ -391,6 +391,7 @@
         <div class="row"><label for="gridElement">Grid element</label><select id="gridElement">
           <option value="hex" selected>hexagon</option>
           <option value="triangle">triangle</option>
+          <option value="square">square</option>
           <option value="circle">circle centers</option>
         </select></div>
         <div class="row"><label for="spread">Glass size</label><input id="spread" type="range" min="0" max="100" value="67"></div>
@@ -1450,8 +1451,14 @@
       target.arc(cx, cy, radius, 0, TAU);
       target.fill();
     }
+    function drawSquareCore(target, cx, cy, radius, c) {
+      target.fillStyle = `rgb(${red(c)},${green(c)},${blue(c)})`;
+      const s = radius * 1.55;
+      target.fillRect(cx - s / 2, cy - s / 2, s, s);
+    }
     function drawGridCore(target, cx, cy, radius, c, x, y) {
       if (el.gridElement.value === "triangle") drawTriangleCore(target, cx, cy, radius * 1.18, c, x, y);
+      else if (el.gridElement.value === "square") drawSquareCore(target, cx, cy, radius, c);
       else if (el.gridElement.value === "circle") drawCircleCore(target, cx, cy, radius * .92, c);
       else drawHexCore(target, cx, cy, radius, c);
     }

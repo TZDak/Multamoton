@@ -59,9 +59,27 @@ The first draft now exposes a `Grid element` rendering control in
 - `hexagon`: cells are drawn as hexagonal elements on the axial point lattice.
 - `triangle`: cells are drawn as alternating triangular elements on the same
   underlying point lattice.
+- `square`: cells are drawn as square markers on the same underlying point
+  lattice. This is a visual comparison mode, not the original square-grid app.
 - `circle centers`: a neutral reference view that emphasizes the cell centers
-  rather than a tiling shape.
+  rather than a tiling shape. It is not a separate grid; it is the same
+  underlying lattice with the cells rendered as disks.
 
 This is currently a rendering comparison, not a change to the Life rules. The
 universe-local x/y axes and eight-neighbor square-rule neighborhoods are still
 chosen from the same axial lattice vectors.
+
+## Future Rule-Neighborhood Families
+
+Possible future rule-level neighborhood families should be added one at a time
+and tested separately:
+
+- Square Moore neighborhood.
+- Square Von Neumann neighborhood.
+- Triangular Von Neumann-style neighborhood.
+- Hexagonal Moore-like neighborhood.
+- Hexagonal nearest-neighbor neighborhood.
+- Extended-radius versions of the above.
+
+These should be treated as rule geometry choices, distinct from the visual
+`Grid element` rendering control.
