@@ -455,6 +455,7 @@
     let W = 201, H = 201, N = W * H;
     let colors, aliveBits, masks, nextColors, nextAliveBits, nextMasks, image;
     let sourceCanvas, sourceCtx, sceneCanvas, sceneCtx, haloCanvas, haloCtx, gridCanvas, gridCtx;
+    let gridOverlaySamples = [], gridOverlayKey = "";
     const HEX_RENDER_SCALE = 8;
     let hexLayout = { minX: 0, minY: 0, borderX: 0, borderY: 0, sceneW: 1, sceneH: 1 };
     const hexVectorCache = new Map();
@@ -580,6 +581,8 @@
       haloCtx = haloCanvas.getContext("2d", { alpha: true });
       gridCanvas = document.createElement("canvas");
       gridCtx = gridCanvas.getContext("2d", { alpha: true });
+      gridOverlaySamples = [];
+      gridOverlayKey = "";
       calculateNeighborhoods();
     }
 
@@ -1575,10 +1578,31 @@
         tracePlanePolygon(target, points);
       }
     }
+    function scenePointToCanvas(sx, sy, scene, scale, angle) {
+      const x = (sx - scene.sceneW / 2) * scale;
+      const y = (sy - scene.sceneH / 2) * scale;
+      const ca = Math.cos(angle), sa = Math.sin(angle);
+      return [canvas.width / 2 + x * ca - y * sa, canvas.height / 2 + x * sa + y * ca];
+    }
+    function gridCellProbablyOnCanvas(q, r, scene, scale, angle) {
+      const [sx, sy] = cellScenePoint(q, r);
+      const [cx, cy] = scenePointToCanvas(sx, sy, scene, scale, angle);
+      const margin = Math.max(4, HEX_RENDER_SCALE * scale * 1.75);
+      return cx >= -margin && cy >= -margin && cx <= canvas.width + margin && cy <= canvas.height + margin;
+    }
+    function randomGridOverlaySample(tiles) {
+      const [tx, ty] = choice(tiles);
+      return { q: randInt(0, W - 1) + tx * W, r: randInt(0, H - 1) + ty * H };
+    }
     function drawGridOverlay(scene, scale, angle) {
       if (!el.showGrid.checked) return false;
       const displayedSpacing = nearestNeighborDistance() * HEX_RENDER_SCALE * scale;
       if (displayedSpacing < 5.5) return false;
+      const key = `${W},${H},${internalGrid()},${el.mirrorBorders.checked}`;
+      if (gridOverlayKey !== key) {
+        gridOverlaySamples = [];
+        gridOverlayKey = key;
+      }
       const tiles = el.mirrorBorders.checked
         ? [-1, 0, 1].flatMap(tx => [-1, 0, 1].map(ty => [tx, ty]))
         : [[0, 0]];
@@ -1597,10 +1621,27 @@
       gridCtx.strokeStyle = "#fff";
       gridCtx.beginPath();
       const deadline = performance.now() + 100;
-      do {
-        const [tx, ty] = choice(tiles);
-        traceGridCell(gridCtx, randInt(0, W - 1) + tx * W, randInt(0, H - 1) + ty * H);
-      } while (performance.now() < deadline);
+      const oldSamples = gridOverlaySamples;
+      const retained = oldSamples.slice(Math.ceil(oldSamples.length * .10));
+      gridOverlaySamples = [];
+      for (let i = 0; i < retained.length; i++) {
+        const sample = retained[i];
+        if (performance.now() >= deadline) {
+          gridOverlaySamples = gridOverlaySamples.concat(retained.slice(i));
+          break;
+        }
+        if (gridCellProbablyOnCanvas(sample.q, sample.r, scene, scale, angle)) {
+          traceGridCell(gridCtx, sample.q, sample.r);
+          gridOverlaySamples.push(sample);
+        }
+      }
+      while (performance.now() < deadline) {
+        const sample = randomGridOverlaySample(tiles);
+        if (!gridCellProbablyOnCanvas(sample.q, sample.r, scene, scale, angle)) continue;
+        traceGridCell(gridCtx, sample.q, sample.r);
+        gridOverlaySamples.push(sample);
+      }
+      if (gridOverlaySamples.length > 50000) gridOverlaySamples = gridOverlaySamples.slice(-50000);
       gridCtx.stroke();
       gridCtx.restore();
       ctx.save();
