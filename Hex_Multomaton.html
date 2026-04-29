@@ -237,7 +237,7 @@
           <option value="square">square lattice</option>
           <option value="rhombus" disabled>deltoidal/rhombus tiling (planned)</option>
         </select></div>
-        <div class="row"><label for="gridRadius">Grid radius</label><input id="gridRadius" type="number" min="20" max="2000" value="200"></div>
+        <div class="row"><label for="gridRadius">Grid radius</label><input id="gridRadius" type="number" min="20" max="1000" value="200"></div>
         <div class="readout" id="profileOut"></div>
       </section>
 
@@ -558,7 +558,7 @@
     }
 
     function resizeWorld() {
-      const radius = intInput(el.gridRadius, 20, 2000, 200);
+      const radius = intInput(el.gridRadius, 20, 1000, 200);
       W = radius * 2 + 1;
       H = radius * 2 + 1;
       N = W * H;
