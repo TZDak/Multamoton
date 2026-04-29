@@ -212,7 +212,6 @@
           <button id="randomize">Python Random</button>
         </div>
         <div class="row"><label for="speed">Generations / sec</label><input id="speed" type="range" min="1" max="90" value="18"></div>
-        <div class="row"><label for="gridRadius">Grid radius</label><input id="gridRadius" type="number" min="20" max="200" value="100"></div>
         <label class="check"><input id="restartStagnant" type="checkbox"> Restart on repeated signatures</label>
         <p class="hint">Enter toggles this panel. Digits step that many generations while paused; 0 steps ten.</p>
       </section>
@@ -232,6 +231,13 @@
         <label class="check"><input id="useGeometryUniverses" type="checkbox" checked> Different rotated geometry per universe</label>
         <label class="check"><input id="useUniverseColors" type="checkbox" checked> Universe color differentiation</label>
         <label class="check"><input id="useBitLayers" type="checkbox" checked> Bit-layer differentiation</label>
+        <div class="row"><label for="gridElement">Internal grid</label><select id="gridElement">
+          <option value="hex" selected>hexagonal lattice</option>
+          <option value="triangle" disabled>triangular lattice (planned)</option>
+          <option value="square">square lattice</option>
+          <option value="rhombus" disabled>deltoidal/rhombus tiling (planned)</option>
+        </select></div>
+        <div class="row"><label for="gridRadius">Grid radius</label><input id="gridRadius" type="number" min="20" max="2000" value="200"></div>
         <div class="readout" id="profileOut"></div>
       </section>
 
@@ -387,12 +393,6 @@
           <option value="soft">soft composite</option>
           <option value="lineage">lineage debug</option>
           <option value="alive">alive mask</option>
-        </select></div>
-        <div class="row"><label for="gridElement">Internal grid</label><select id="gridElement">
-          <option value="hex" selected>hexagonal lattice</option>
-          <option value="triangle" disabled>triangular lattice (planned)</option>
-          <option value="square">square lattice</option>
-          <option value="rhombus" disabled>deltoidal/rhombus tiling (planned)</option>
         </select></div>
         <div class="row"><label for="spread">Glass size</label><input id="spread" type="range" min="0" max="100" value="67"></div>
         <div class="row"><label for="haloOpacity">Glass opacity</label><input id="haloOpacity" type="range" min="0" max="100" value="100"></div>
@@ -558,7 +558,7 @@
     }
 
     function resizeWorld() {
-      const radius = intInput(el.gridRadius, 20, 200, 100);
+      const radius = intInput(el.gridRadius, 20, 2000, 200);
       W = radius * 2 + 1;
       H = radius * 2 + 1;
       N = W * H;
@@ -1715,7 +1715,7 @@
       el.useGeometryUniverses.checked = true;
       el.useUniverseColors.checked = true;
       el.sides.value = 4;
-      el.gridRadius.value = 100;
+      el.gridRadius.value = 200;
       el.startThings.value = 12;
       el.radiusAugment.value = 1;
       el.corners.checked = true;
