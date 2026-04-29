@@ -35,3 +35,18 @@ current first-collision-free-radius search.
   or become selectable.
 - How to score "as square as possible" for each universe: edge-length ratio,
   angle closeness to 90 degrees, area consistency, or a weighted combination.
+
+## First Draft
+
+`Hex_Multomaton.html` keeps the rectangular backing array but interprets each
+cell address as an axial hex coordinate for display and neighborhood geometry.
+Each universe chooses two axial basis vectors by scoring:
+
+- closeness to the requested orientation,
+- closeness to a 90 degree rendered angle,
+- closeness of rendered x/y basis lengths,
+- closeness to the current radius shell.
+
+The Life neighborhood is still square-rule-like: each universe uses eight
+offsets derived from the two basis vectors: plus/minus both axes and the four
+corner sums/differences.
