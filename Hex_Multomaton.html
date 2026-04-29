@@ -1592,7 +1592,14 @@
     }
     function randomGridOverlaySample(tiles) {
       const [tx, ty] = choice(tiles);
-      return { q: randInt(0, W - 1) + tx * W, r: randInt(0, H - 1) + ty * H };
+      const gaussian = () => {
+        let u = 0, v = 0;
+        while (u === 0) u = rng();
+        while (v === 0) v = rng();
+        return Math.sqrt(-2 * Math.log(u)) * Math.cos(TAU * v);
+      };
+      const centered = (size) => clamp(Math.round((size - 1) / 2 + gaussian() * size / 5.5), 0, size - 1);
+      return { q: centered(W) + tx * W, r: centered(H) + ty * H };
     }
     function drawGridOverlay(scene, scale, angle) {
       if (!el.showGrid.checked) return false;
