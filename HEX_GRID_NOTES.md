@@ -67,10 +67,9 @@ and picking. Implemented options:
   layered on top.
 - `square lattice`: ordinary integer grid coordinates rendered in square
   projection, but still with circular cell markers.
-- `rhombic lattice`: oblique equal-edge 45-degree lattice projection with
-  parallelogram address/radius bounds. This intentionally differs from
-  `hexagonal lattice`, which uses a 60-degree axial projection and a hex-style
-  axial radius shell.
+- `rhombic lattice`: a rhombille-like repeating substrate. The x-address modulo
+  three selects one of three rhombi inside each projected hex cell, as though a
+  hexagonal tiling were divided radially into three equal rhombic parts.
 
 More exotic deltoidal or nonperiodic tilings remain future possibilities.
 
