@@ -67,10 +67,10 @@ and picking. Implemented options:
   layered on top.
 - `square lattice`: ordinary integer grid coordinates rendered in square
   projection, but still with circular cell markers.
-- `rhombic lattice`: a rhombille-like isometric cube-face substrate. The
-  x-address modulo three selects one of three projected square faces, each
-  spanned by a different pair of the three isometric cube axes, like the visible
-  faces in a Q-Bert-style stack of cubes.
+- `rhombic lattice`: each point-top hex cell is divided radially into three
+  rhombi. The x-address modulo three selects the top, lower-left, or lower-right
+  rhombus inside the composite hexagon, and cell centers are placed at the
+  centroids of those rhombi.
 
 More exotic deltoidal or nonperiodic tilings remain future possibilities.
 
