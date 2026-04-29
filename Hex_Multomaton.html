@@ -213,6 +213,7 @@
         </div>
         <div class="row"><label for="speed">Generations / sec</label><input id="speed" type="range" min="1" max="90" value="18"></div>
         <label class="check"><input id="restartStagnant" type="checkbox"> Restart on repeated signatures</label>
+        <label class="check"><input id="showGrid" type="checkbox"> Show grid / lattice when large enough</label>
         <p class="hint">Enter toggles this panel. Digits step that many generations while paused; 0 steps ten.</p>
       </section>
 
@@ -435,7 +436,7 @@
     const el = {
       settingsPanel: $("settingsPanel"), closeSettings: $("closeSettings"), fullscreen: $("fullscreen"),
       play: $("play"), step: $("step"), restart: $("restart"), randomize: $("randomize"),
-      speed: $("speed"), gridRadius: $("gridRadius"), restartStagnant: $("restartStagnant"),
+      speed: $("speed"), gridRadius: $("gridRadius"), restartStagnant: $("restartStagnant"), showGrid: $("showGrid"),
       seed: $("seed"), applySeed: $("applySeed"), defaultProfile: $("defaultProfile"), randomStyle: $("randomStyle"), profileOut: $("profileOut"),
       useGeometryUniverses: $("useGeometryUniverses"), useUniverseColors: $("useUniverseColors"), universes: $("universes"), universeOneToggle: $("universeOneToggle"), sides: $("sides"), radiusAugment: $("radiusAugment"), corners: $("corners"), wrapMode: $("wrapMode"), neighborhoodOut: $("neighborhoodOut"),
       birthRule: $("birthRule"), survivalRule: $("survivalRule"), consensus: $("consensus"), newbornLineage: $("newbornLineage"),
@@ -453,7 +454,7 @@
 
     let W = 201, H = 201, N = W * H;
     let colors, aliveBits, masks, nextColors, nextAliveBits, nextMasks, image;
-    let sourceCanvas, sourceCtx, sceneCanvas, sceneCtx, haloCanvas, haloCtx;
+    let sourceCanvas, sourceCtx, sceneCanvas, sceneCtx, haloCanvas, haloCtx, gridCanvas, gridCtx;
     const HEX_RENDER_SCALE = 8;
     let hexLayout = { minX: 0, minY: 0, borderX: 0, borderY: 0, sceneW: 1, sceneH: 1 };
     const hexVectorCache = new Map();
@@ -577,6 +578,8 @@
       sceneCtx = sceneCanvas.getContext("2d", { alpha: true });
       haloCanvas = document.createElement("canvas");
       haloCtx = haloCanvas.getContext("2d", { alpha: true });
+      gridCanvas = document.createElement("canvas");
+      gridCtx = gridCanvas.getContext("2d", { alpha: true });
       calculateNeighborhoods();
     }
 
@@ -1530,6 +1533,87 @@
       }
       return { canvas: sceneCanvas, sceneW, sceneH, borderX, borderY };
     }
+    function scenePointFromPlane(px, py) {
+      return [px * HEX_RENDER_SCALE - hexLayout.minX + hexLayout.borderX, py * HEX_RENDER_SCALE - hexLayout.minY + hexLayout.borderY];
+    }
+    function tracePlanePolygon(target, points) {
+      for (let i = 0; i < points.length; i++) {
+        const [sx, sy] = scenePointFromPlane(points[i][0], points[i][1]);
+        if (i) target.lineTo(sx, sy);
+        else target.moveTo(sx, sy);
+      }
+      target.closePath();
+    }
+    function traceGridCell(target, q, r) {
+      const grid = internalGrid();
+      const [cx, cy] = axialToPlane(q, r);
+      if (grid === "square") {
+        tracePlanePolygon(target, [[cx - .5, cy - .5], [cx + .5, cy - .5], [cx + .5, cy + .5], [cx - .5, cy + .5]]);
+      } else if (grid === "triangle") {
+        const h = Math.sqrt(3) * .5;
+        const up = mod(q + r, 2) === 0;
+        const points = up
+          ? [[cx - .5, cy - h / 3], [cx + .5, cy - h / 3], [cx, cy + h * 2 / 3]]
+          : [[cx - .5, cy + h / 3], [cx + .5, cy + h / 3], [cx, cy - h * 2 / 3]];
+        tracePlanePolygon(target, points);
+      } else if (grid === "rhombus") {
+        const angle = Math.PI / 4;
+        const ex = [1, 0], ey = [Math.cos(angle), Math.sin(angle)];
+        tracePlanePolygon(target, [
+          [cx - ex[0] / 2 - ey[0] / 2, cy - ex[1] / 2 - ey[1] / 2],
+          [cx + ex[0] / 2 - ey[0] / 2, cy + ex[1] / 2 - ey[1] / 2],
+          [cx + ex[0] / 2 + ey[0] / 2, cy + ex[1] / 2 + ey[1] / 2],
+          [cx - ex[0] / 2 + ey[0] / 2, cy - ex[1] / 2 + ey[1] / 2]
+        ]);
+      } else {
+        const radius = 1 / Math.sqrt(3);
+        const points = [];
+        for (let i = 0; i < 6; i++) {
+          const a = Math.PI / 6 + i * TAU / 6;
+          points.push([cx + Math.cos(a) * radius, cy + Math.sin(a) * radius]);
+        }
+        tracePlanePolygon(target, points);
+      }
+    }
+    function drawGridOverlay(scene, scale, angle) {
+      if (!el.showGrid.checked) return false;
+      const displayedSpacing = nearestNeighborDistance() * HEX_RENDER_SCALE * scale;
+      if (displayedSpacing < 5.5) return false;
+      const tiles = el.mirrorBorders.checked
+        ? [-1, 0, 1].flatMap(tx => [-1, 0, 1].map(ty => [tx, ty]))
+        : [[0, 0]];
+      if (N * tiles.length > 2000000) return false;
+      if (gridCanvas.width !== canvas.width || gridCanvas.height !== canvas.height) {
+        gridCanvas.width = canvas.width;
+        gridCanvas.height = canvas.height;
+      }
+      gridCtx.setTransform(1, 0, 0, 1, 0, 0);
+      gridCtx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
+      gridCtx.save();
+      gridCtx.translate(canvas.width / 2, canvas.height / 2);
+      gridCtx.rotate(angle);
+      gridCtx.scale(scale, scale);
+      gridCtx.translate(-scene.sceneW / 2, -scene.sceneH / 2);
+      gridCtx.lineWidth = 1 / scale;
+      gridCtx.strokeStyle = "#fff";
+      gridCtx.beginPath();
+      for (const [tx, ty] of tiles) {
+        const dx = tx * W;
+        const dy = ty * H;
+        for (let y = 0; y < H; y++) {
+          for (let x = 0; x < W; x++) {
+            traceGridCell(gridCtx, x + dx, y + dy);
+          }
+        }
+      }
+      gridCtx.stroke();
+      gridCtx.restore();
+      ctx.save();
+      ctx.globalCompositeOperation = "difference";
+      ctx.drawImage(gridCanvas, 0, 0);
+      ctx.restore();
+      return true;
+    }
     function resizeDisplayCanvas() {
       const dpr = window.devicePixelRatio || 1;
       const w = Math.max(1, Math.floor(canvas.clientWidth * dpr));
@@ -1582,6 +1666,7 @@
       ctx.globalAlpha = 1;
       ctx.globalCompositeOperation = "source-over";
       ctx.restore();
+      drawGridOverlay(scene, scale, angle);
       view = { ...view, angle, scale, sceneW: scene.sceneW, sceneH: scene.sceneH, borderX: scene.borderX, borderY: scene.borderY };
       updateHud();
     }
@@ -1739,6 +1824,7 @@
       el.consensus.value = "-1";
       el.birthRule.value = "3";
       el.survivalRule.value = "2,3";
+      el.showGrid.checked = false;
       el.universes.value = 3;
       el.useGeometryUniverses.checked = true;
       el.useUniverseColors.checked = true;
