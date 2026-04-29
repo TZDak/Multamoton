@@ -212,8 +212,7 @@
           <button id="randomize">Python Random</button>
         </div>
         <div class="row"><label for="speed">Generations / sec</label><input id="speed" type="range" min="1" max="90" value="18"></div>
-        <div class="row"><label for="simWidth">Grid width</label><input id="simWidth" type="number" min="41" max="401" value="201"></div>
-        <div class="row"><label for="simHeight">Grid height</label><input id="simHeight" type="number" min="31" max="251" value="125"></div>
+        <div class="row"><label for="gridRadius">Grid radius</label><input id="gridRadius" type="number" min="20" max="200" value="100"></div>
         <label class="check"><input id="restartStagnant" type="checkbox"> Restart on repeated signatures</label>
         <p class="hint">Enter toggles this panel. Digits step that many generations while paused; 0 steps ten.</p>
       </section>
@@ -435,7 +434,7 @@
     const el = {
       settingsPanel: $("settingsPanel"), closeSettings: $("closeSettings"), fullscreen: $("fullscreen"),
       play: $("play"), step: $("step"), restart: $("restart"), randomize: $("randomize"),
-      speed: $("speed"), simWidth: $("simWidth"), simHeight: $("simHeight"), restartStagnant: $("restartStagnant"),
+      speed: $("speed"), gridRadius: $("gridRadius"), restartStagnant: $("restartStagnant"),
       seed: $("seed"), applySeed: $("applySeed"), defaultProfile: $("defaultProfile"), randomStyle: $("randomStyle"), profileOut: $("profileOut"),
       useGeometryUniverses: $("useGeometryUniverses"), universes: $("universes"), sides: $("sides"), radiusAugment: $("radiusAugment"), corners: $("corners"), wrapMode: $("wrapMode"), neighborhoodOut: $("neighborhoodOut"),
       birthRule: $("birthRule"), survivalRule: $("survivalRule"), consensus: $("consensus"), newbornLineage: $("newbornLineage"),
@@ -451,7 +450,7 @@
       modeOut: $("modeOut"), generationOut: $("generationOut"), liveOut: $("liveOut"), birthOut: $("birthOut"), deathOut: $("deathOut"), survivalOut: $("survivalOut")
     };
 
-    let W = 201, H = 125, N = W * H;
+    let W = 201, H = 201, N = W * H;
     let colors, aliveBits, masks, nextColors, nextAliveBits, nextMasks, image;
     let sourceCanvas, sourceCtx, sceneCanvas, sceneCtx, haloCanvas, haloCtx;
     const HEX_RENDER_SCALE = 8;
@@ -556,8 +555,9 @@
     }
 
     function resizeWorld() {
-      W = intInput(el.simWidth, 41, 401, 201, true);
-      H = intInput(el.simHeight, 31, 251, 125, true);
+      const radius = intInput(el.gridRadius, 20, 200, 100);
+      W = radius * 2 + 1;
+      H = radius * 2 + 1;
       N = W * H;
       colors = new Uint32Array(N);
       aliveBits = new Uint32Array(N);
@@ -1684,6 +1684,7 @@
       el.universes.value = 3;
       el.useGeometryUniverses.checked = true;
       el.sides.value = 4;
+      el.gridRadius.value = 100;
       el.startThings.value = 12;
       el.radiusAugment.value = 1;
       el.corners.checked = true;
@@ -1812,7 +1813,7 @@
       });
     });
 
-    const restartIds = new Set(["simWidth", "simHeight", "universes", "sides", "radiusAugment", "corners", "startThings", "randomPlacement", "itemRotation", "uBlinker", "uGlider0", "uGlider1", "uAcorn", "uTen", "uOPent", "uQPent", "uRPent", "uTPent", "uXPent"]);
+    const restartIds = new Set(["gridRadius", "universes", "sides", "radiusAugment", "corners", "startThings", "randomPlacement", "itemRotation", "uBlinker", "uGlider0", "uGlider1", "uAcorn", "uTen", "uOPent", "uQPent", "uRPent", "uTPent", "uXPent"]);
     for (const input of document.querySelectorAll("input, select")) {
       input.addEventListener("change", () => {
         if (input === el.paintColor) {
@@ -1825,7 +1826,7 @@
           render();
         } else if (input === el.useBitLayers) {
           render();
-        } else if (input === el.simWidth || input === el.simHeight) {
+        } else if (input === el.gridRadius) {
           resizeWorld();
           seedWorld();
         } else if (restartIds.has(input.id)) {

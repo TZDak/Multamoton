@@ -64,6 +64,11 @@ possibly deltoidal/rhombus tilings.
 
 The original square-grid version remains preserved in `Sq_Multomaton.html`.
 
+For the first draft, the `Grid radius` control creates a rectangular backing
+range of `(2R + 1) x (2R + 1)` axial addresses. This is still an implementation
+compromise rather than a true finite hexagonal disk, but it presents the size in
+terms of radius instead of square-grid width and height.
+
 ## Future Rule-Neighborhood Families
 
 Possible future rule-level neighborhood families should be added one at a time
