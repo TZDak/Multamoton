@@ -1582,7 +1582,6 @@
       const tiles = el.mirrorBorders.checked
         ? [-1, 0, 1].flatMap(tx => [-1, 0, 1].map(ty => [tx, ty]))
         : [[0, 0]];
-      if (N * tiles.length > 2000000) return false;
       if (gridCanvas.width !== canvas.width || gridCanvas.height !== canvas.height) {
         gridCanvas.width = canvas.width;
         gridCanvas.height = canvas.height;
@@ -1597,15 +1596,11 @@
       gridCtx.lineWidth = 1 / scale;
       gridCtx.strokeStyle = "#fff";
       gridCtx.beginPath();
-      for (const [tx, ty] of tiles) {
-        const dx = tx * W;
-        const dy = ty * H;
-        for (let y = 0; y < H; y++) {
-          for (let x = 0; x < W; x++) {
-            traceGridCell(gridCtx, x + dx, y + dy);
-          }
-        }
-      }
+      const deadline = performance.now() + 100;
+      do {
+        const [tx, ty] = choice(tiles);
+        traceGridCell(gridCtx, randInt(0, W - 1) + tx * W, randInt(0, H - 1) + ty * H);
+      } while (performance.now() < deadline);
       gridCtx.stroke();
       gridCtx.restore();
       ctx.save();
