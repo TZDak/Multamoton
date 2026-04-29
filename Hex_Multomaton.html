@@ -632,36 +632,34 @@
       const parity = mod(q + r, 2);
       return [q * .5, r * h + (parity ? h * 2 / 3 : h / 3)];
     }
-    function rotatePlanePoint(x, y, angle) {
-      const ca = Math.cos(angle), sa = Math.sin(angle);
-      return [x * ca - y * sa, x * sa + y * ca];
+    function rhombilleAxes() {
+      const s = Math.sqrt(3) * .5;
+      return [[s, -.5], [-s, -.5], [0, 1]];
     }
-    function rhombilleRotation() {
-      return Math.PI / 6;
+    function rhombilleBasePoint(col, row) {
+      const [a, b] = rhombilleAxes();
+      return [col * a[0] + row * b[0], col * a[1] + row * b[1]];
     }
-    function rhombusToPlane(q, r) {
-      const h = Math.sqrt(3) * .5;
-      const radius = 1 / Math.sqrt(3);
+    function rhombilleVerticesForAddress(q, r) {
       const type = mod(q, 3);
       const col = Math.floor(q / 3);
-      const center = [col + r * .5, r * h];
-      const verts = rhombilleVertices(center[0], center[1], radius, type);
+      const p = rhombilleBasePoint(col, r);
+      const axes = rhombilleAxes();
+      const pairs = [[0, 1], [1, 2], [2, 0]];
+      const [i, j] = pairs[type];
+      const a = axes[i], b = axes[j];
+      return [
+        p,
+        [p[0] + a[0], p[1] + a[1]],
+        [p[0] + a[0] + b[0], p[1] + a[1] + b[1]],
+        [p[0] + b[0], p[1] + b[1]]
+      ];
+    }
+    function rhombusToPlane(q, r) {
+      const verts = rhombilleVerticesForAddress(q, r);
       const x = verts.reduce((sum, p) => sum + p[0], 0) / verts.length;
       const y = verts.reduce((sum, p) => sum + p[1], 0) / verts.length;
       return [x, y];
-    }
-    function rhombilleVertices(cx, cy, radius, type) {
-      const verts = [];
-      for (let i = 0; i < 6; i++) {
-        const a = i * TAU / 6;
-        verts.push([cx + Math.cos(a) * radius, cy + Math.sin(a) * radius]);
-      }
-      const points = type === 0
-        ? [[cx, cy], verts[5], verts[0], verts[1]]
-        : type === 1
-          ? [[cx, cy], verts[1], verts[2], verts[3]]
-          : [[cx, cy], verts[3], verts[4], verts[5]];
-      return points.map(([x, y]) => rotatePlanePoint(x, y, rhombilleRotation()));
     }
     function axialToPlane(q, r) {
       const grid = internalGrid();
@@ -1594,12 +1592,7 @@
           : [[cx - .5, cy + h / 3], [cx + .5, cy + h / 3], [cx, cy - h * 2 / 3]];
         tracePlanePolygon(target, points);
       } else if (grid === "rhombus") {
-        const h = Math.sqrt(3) * .5;
-        const radius = 1 / Math.sqrt(3);
-        const type = mod(q, 3);
-        const col = Math.floor(q / 3);
-        const center = [col + r * .5, r * h];
-        tracePlanePolygon(target, rhombilleVertices(center[0], center[1], radius, type));
+        tracePlanePolygon(target, rhombilleVerticesForAddress(q, r));
       } else {
         const radius = 1 / Math.sqrt(3);
         const points = [];
@@ -1778,9 +1771,10 @@
         approxQ = planeX * 2;
         approxR = planeY / (Math.sqrt(3) * .5);
       } else if (internalGrid() === "rhombus") {
-        const [rx, ry] = rotatePlanePoint(planeX, planeY, -rhombilleRotation());
-        approxR = ry / (Math.sqrt(3) * .5);
-        approxQ = (rx - approxR * .5) * 3 + 1;
+        const s = Math.sqrt(3) * .5;
+        const col = (planeX / s - 2 * planeY) / 2;
+        approxR = (-2 * planeY - planeX / s) / 2;
+        approxQ = col * 3 + 1;
       } else {
         approxR = planeY / (Math.sqrt(3) * .5);
         approxQ = planeX - approxR * .5;
