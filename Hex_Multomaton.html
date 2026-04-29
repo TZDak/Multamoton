@@ -229,7 +229,8 @@
           <option value="wild">Wild</option>
           <option value="mutate">Mutate current</option>
         </select></div>
-        <label class="check"><input id="useGeometryUniverses" type="checkbox" checked> Rotational universe differentiation</label>
+        <label class="check"><input id="useGeometryUniverses" type="checkbox" checked> Different rotated geometry per universe</label>
+        <label class="check"><input id="useUniverseColors" type="checkbox" checked> Universe color differentiation</label>
         <label class="check"><input id="useBitLayers" type="checkbox" checked> Bit-layer differentiation</label>
         <div class="readout" id="profileOut"></div>
       </section>
@@ -436,7 +437,7 @@
       play: $("play"), step: $("step"), restart: $("restart"), randomize: $("randomize"),
       speed: $("speed"), gridRadius: $("gridRadius"), restartStagnant: $("restartStagnant"),
       seed: $("seed"), applySeed: $("applySeed"), defaultProfile: $("defaultProfile"), randomStyle: $("randomStyle"), profileOut: $("profileOut"),
-      useGeometryUniverses: $("useGeometryUniverses"), universes: $("universes"), universeOneToggle: $("universeOneToggle"), sides: $("sides"), radiusAugment: $("radiusAugment"), corners: $("corners"), wrapMode: $("wrapMode"), neighborhoodOut: $("neighborhoodOut"),
+      useGeometryUniverses: $("useGeometryUniverses"), useUniverseColors: $("useUniverseColors"), universes: $("universes"), universeOneToggle: $("universeOneToggle"), sides: $("sides"), radiusAugment: $("radiusAugment"), corners: $("corners"), wrapMode: $("wrapMode"), neighborhoodOut: $("neighborhoodOut"),
       birthRule: $("birthRule"), survivalRule: $("survivalRule"), consensus: $("consensus"), newbornLineage: $("newbornLineage"),
       useBitLayers: $("useBitLayers"), sliceMode: $("sliceMode"), sliceSchedule: $("sliceSchedule"), bitsPerSlice: $("bitsPerSlice"), sliceAdvance: $("sliceAdvance"), sliceOrigin: $("sliceOrigin"), activeSlices: $("activeSlices"), sliceInteraction: $("sliceInteraction"), sliceOut: $("sliceOut"),
       sepR: $("sepR"), sepG: $("sepG"), sepB: $("sepB"), birthColorMode: $("birthColorMode"), survivalMutation: $("survivalMutation"), residueMode: $("residueMode"),
@@ -535,6 +536,7 @@
       return rgb(Math.round(m[0] * 255), Math.round(m[1] * 255), Math.round(m[2] * 255));
     }
     function geometryDifferentiationEnabled() { return el.useGeometryUniverses.checked; }
+    function universeColorDifferentiationEnabled() { return el.useUniverseColors.checked; }
     function bitDifferentiationEnabled() { return el.useBitLayers.checked; }
     function universeCount() { return intInput(el.universes, 1, 31, 3); }
     function allMask() {
@@ -789,9 +791,10 @@
       haloOffsets = Array.from(new Set(allOffsets.map(([dx, dy]) => `${Math.round(dx * .35)},${Math.round(dy * .35)}`)), key => key.split(",").map(Number)).filter(([dx, dy]) => dx || dy);
       updatePaintUniverses();
       const universeText = n === 1 ? `1 universe` : `${n} universes`;
+      const geometryText = geometryDifferentiationEnabled() ? "unique geometry" : "shared geometry";
       const sq = bases.length ? bases.reduce((s, b) => s + (b.squareError || 0), 0) / bases.length : 0;
       const gridName = internalGrid() === "square" ? "square" : "hex";
-      el.neighborhoodOut.textContent = `${gridName} radius ${radiusUsed}; ${universeText}; ${allOffsets.length} offsets; square error ${sq.toFixed(3)}`;
+      el.neighborhoodOut.textContent = `${gridName} radius ${radiusUsed}; ${universeText}; ${geometryText}; ${allOffsets.length} offsets; square error ${sq.toFixed(3)}`;
     }
 
     function bitMaskFromPositions(start, width) {
@@ -1076,7 +1079,7 @@
             if (birthColor == null || el.sliceInteraction.value === "strong") {
               birthColor = chooseBirthColor(data.mateColors);
               const cpu = clamp(numInput(el.cpuBirths, 15), -100, 100);
-              if (geometryDifferentiationEnabled() && cpu && data.nonzeroUniverses.length === 1) {
+              if (universeColorDifferentiationEnabled() && cpu && data.nonzeroUniverses.length === 1) {
                 birthColor = blendColors(birthColor, universalColor(data.nonzeroUniverses[0]), cpu / 100);
               }
             }
@@ -1278,7 +1281,7 @@
       return out;
     }
     function weightedSeedColor(uni, item, cell, rnd) {
-      let wu = geometryDifferentiationEnabled() ? Math.max(0, numInput(el.colorByUniverse, 7)) : 0;
+      let wu = universeColorDifferentiationEnabled() ? Math.max(0, numInput(el.colorByUniverse, 7)) : 0;
       let wi = Math.max(0, numInput(el.colorByItem, 5));
       let wc = Math.max(0, numInput(el.colorByCell, 2));
       let wr = Math.max(0, numInput(el.randomColors, 3));
@@ -1666,9 +1669,9 @@
       if (host) host.classList.toggle("is-disabled-context", disabled);
     }
     function updateControlAvailability() {
-      const geometryOn = geometryDifferentiationEnabled();
+      const universeColorsOn = universeColorDifferentiationEnabled();
       for (const id of ["cpuBirths", "colorByUniverse"]) {
-        setElementContextDisabled(el[id], !geometryOn);
+        setElementContextDisabled(el[id], !universeColorsOn);
       }
 
       const bitOn = bitDifferentiationEnabled();
@@ -1710,6 +1713,7 @@
       el.survivalRule.value = "2,3";
       el.universes.value = 3;
       el.useGeometryUniverses.checked = true;
+      el.useUniverseColors.checked = true;
       el.sides.value = 4;
       el.gridRadius.value = 100;
       el.startThings.value = 12;
@@ -1861,6 +1865,8 @@
         }
         if (input === el.useGeometryUniverses) {
           calculateNeighborhoods();
+          render();
+        } else if (input === el.useUniverseColors) {
           render();
         } else if (input === el.useBitLayers) {
           render();

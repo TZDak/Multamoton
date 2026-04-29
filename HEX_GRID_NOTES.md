@@ -74,12 +74,16 @@ range of `(2R + 1) x (2R + 1)` axial addresses. This is still an implementation
 compromise rather than a true finite hexagonal disk, but it presents the size in
 terms of radius instead of square-grid width and height.
 
-`Rotational universe differentiation` does not change the number of universes.
-When it is off, the selected universes remain as separate masks/lanes but share
-the same geometry, and universe-tinted birth/seed color bias is disabled so bit
-slicing can dominate color behavior. The `1 / saved` button beside `Universes`
-is the explicit shortcut for switching between a single universe and the last
-non-one universe count.
+Universe count, rotated geometry, and universe color influence are separate
+controls:
+
+- `Universes` controls the number of universe masks/lanes.
+- `1 / saved` switches between one universe and the last non-one universe count.
+- `Different rotated geometry per universe` controls whether universes get
+  unique rotated/spaced basis geometry or share the same basis as a deliberate
+  isolation/test mode.
+- `Universe color differentiation` controls universe-tinted seed and birth color
+  bias, so bit slicing can be tested while preserving multiverse geometry.
 
 ## Future Rule-Neighborhood Families
 
