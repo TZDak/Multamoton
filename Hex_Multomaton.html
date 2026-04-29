@@ -1622,7 +1622,7 @@
       gridCtx.beginPath();
       const deadline = performance.now() + 100;
       const oldSamples = gridOverlaySamples;
-      const retained = oldSamples.slice(Math.ceil(oldSamples.length * .10));
+      const retained = oldSamples.slice(Math.ceil(oldSamples.length * .01));
       gridOverlaySamples = [];
       for (let i = 0; i < retained.length; i++) {
         const sample = retained[i];
@@ -1641,7 +1641,6 @@
         traceGridCell(gridCtx, sample.q, sample.r);
         gridOverlaySamples.push(sample);
       }
-      if (gridOverlaySamples.length > 50000) gridOverlaySamples = gridOverlaySamples.slice(-50000);
       gridCtx.stroke();
       gridCtx.restore();
       ctx.save();
