@@ -236,7 +236,7 @@
 
       <section>
         <h2>Geometry</h2>
-        <div class="row" data-geometry-control><label for="universes">Universes</label><input id="universes" type="number" min="1" max="31" value="3"></div>
+        <div class="row" data-geometry-control><label for="universes">Universes</label><button id="universeOneToggle" type="button">1 / saved</button><input id="universes" type="number" min="1" max="31" value="3"></div>
         <div class="row"><label for="sides">Sides / neighborhood</label><input id="sides" type="number" min="3" max="24" value="4"></div>
         <div class="row"><label for="radiusAugment">Radius augment</label><input id="radiusAugment" type="number" min="0" max="40" value="1"></div>
         <label class="check"><input id="corners" type="checkbox" checked> Include corners in radius search</label>
@@ -436,7 +436,7 @@
       play: $("play"), step: $("step"), restart: $("restart"), randomize: $("randomize"),
       speed: $("speed"), gridRadius: $("gridRadius"), restartStagnant: $("restartStagnant"),
       seed: $("seed"), applySeed: $("applySeed"), defaultProfile: $("defaultProfile"), randomStyle: $("randomStyle"), profileOut: $("profileOut"),
-      useGeometryUniverses: $("useGeometryUniverses"), universes: $("universes"), sides: $("sides"), radiusAugment: $("radiusAugment"), corners: $("corners"), wrapMode: $("wrapMode"), neighborhoodOut: $("neighborhoodOut"),
+      useGeometryUniverses: $("useGeometryUniverses"), universes: $("universes"), universeOneToggle: $("universeOneToggle"), sides: $("sides"), radiusAugment: $("radiusAugment"), corners: $("corners"), wrapMode: $("wrapMode"), neighborhoodOut: $("neighborhoodOut"),
       birthRule: $("birthRule"), survivalRule: $("survivalRule"), consensus: $("consensus"), newbornLineage: $("newbornLineage"),
       useBitLayers: $("useBitLayers"), sliceMode: $("sliceMode"), sliceSchedule: $("sliceSchedule"), bitsPerSlice: $("bitsPerSlice"), sliceAdvance: $("sliceAdvance"), sliceOrigin: $("sliceOrigin"), activeSlices: $("activeSlices"), sliceInteraction: $("sliceInteraction"), sliceOut: $("sliceOut"),
       sepR: $("sepR"), sepG: $("sepG"), sepB: $("sepB"), birthColorMode: $("birthColorMode"), survivalMutation: $("survivalMutation"), residueMode: $("residueMode"),
@@ -457,6 +457,7 @@
     let hexLayout = { minX: 0, minY: 0, borderX: 0, borderY: 0, sceneW: 1, sceneH: 1 };
     const hexVectorCache = new Map();
     const hexBasisCache = new Map();
+    let savedUniverseCount = 3;
     let neighborhoods = [], allOffsets = [], haloOffsets = [], radiusUsed = 1;
     let running = true, generation = 0, lastStepTime = 0, lastRenderTime = 0, sineAngle = 0;
     let sliceOriginCurrent = 0;
@@ -535,7 +536,7 @@
     }
     function geometryDifferentiationEnabled() { return el.useGeometryUniverses.checked; }
     function bitDifferentiationEnabled() { return el.useBitLayers.checked; }
-    function universeCount() { return geometryDifferentiationEnabled() ? intInput(el.universes, 1, 31, 3) : 1; }
+    function universeCount() { return intInput(el.universes, 1, 31, 3); }
     function allMask() {
       const n = universeCount();
       return n >= 31 ? 0x7fffffff : ((1 << n) - 1) >>> 0;
@@ -755,14 +756,15 @@
         sets = [];
         bases = [];
         for (let u = 0; u < n; u++) {
-          const basis = chooseHexBasis(u / n, radius);
+          const basis = chooseHexBasis(geometryDifferentiationEnabled() ? u / n : 0, radius);
           const offsets = hexNeighborhoodFromBasis(basis.a, basis.b);
-          locations.push(...offsets.map(([dx, dy]) => `${dx},${dy}`));
+          if (geometryDifferentiationEnabled()) locations.push(...offsets.map(([dx, dy]) => `${dx},${dy}`));
           sets.push(offsets);
           bases.push(basis);
         }
         const eachNeighborhoodComplete = sets.every(offsets => offsets.length === expectedPerNeighborhood);
-        if (eachNeighborhoodComplete && new Set(locations).size === locations.length) {
+        const distinctEnough = !geometryDifferentiationEnabled() || new Set(locations).size === locations.length;
+        if (eachNeighborhoodComplete && distinctEnough) {
           if (effectiveAugment && !accepted) {
             accepted = radius;
             radius += effectiveAugment;
@@ -777,7 +779,7 @@
       sets = [];
       bases = [];
       for (let u = 0; u < n; u++) {
-        const basis = chooseHexBasis(u / n, radius);
+        const basis = chooseHexBasis(geometryDifferentiationEnabled() ? u / n : 0, radius);
         sets.push(hexNeighborhoodFromBasis(basis.a, basis.b));
         bases.push(basis);
       }
@@ -1074,7 +1076,7 @@
             if (birthColor == null || el.sliceInteraction.value === "strong") {
               birthColor = chooseBirthColor(data.mateColors);
               const cpu = clamp(numInput(el.cpuBirths, 15), -100, 100);
-              if (cpu && data.nonzeroUniverses.length === 1) {
+              if (geometryDifferentiationEnabled() && cpu && data.nonzeroUniverses.length === 1) {
                 birthColor = blendColors(birthColor, universalColor(data.nonzeroUniverses[0]), cpu / 100);
               }
             }
@@ -1276,7 +1278,7 @@
       return out;
     }
     function weightedSeedColor(uni, item, cell, rnd) {
-      let wu = Math.max(0, numInput(el.colorByUniverse, 7));
+      let wu = geometryDifferentiationEnabled() ? Math.max(0, numInput(el.colorByUniverse, 7)) : 0;
       let wi = Math.max(0, numInput(el.colorByItem, 5));
       let wc = Math.max(0, numInput(el.colorByCell, 2));
       let wr = Math.max(0, numInput(el.randomColors, 3));
@@ -1665,7 +1667,7 @@
     }
     function updateControlAvailability() {
       const geometryOn = geometryDifferentiationEnabled();
-      for (const id of ["universes", "newbornLineage", "cpuBirths", "colorByUniverse", "paintUniverse"]) {
+      for (const id of ["cpuBirths", "colorByUniverse"]) {
         setElementContextDisabled(el[id], !geometryOn);
       }
 
@@ -1826,6 +1828,17 @@
     el.clearWorld.addEventListener("click", clearWorld);
     el.applySeed.addEventListener("click", applySeed);
     el.defaultProfile.addEventListener("click", () => { resetDefaults(); resizeWorld(); seedWorld(); });
+    el.universeOneToggle.addEventListener("click", () => {
+      const current = intInput(el.universes, 1, 31, 3);
+      if (current === 1) {
+        el.universes.value = clamp(savedUniverseCount || 3, 2, 31);
+      } else {
+        savedUniverseCount = current;
+        el.universes.value = 1;
+      }
+      calculateNeighborhoods();
+      seedWorld();
+    });
     document.querySelectorAll("[data-bit-preset]").forEach(button => {
       button.addEventListener("click", () => {
         const [count, advance] = button.dataset.bitPreset.split(",");
@@ -1848,7 +1861,7 @@
         }
         if (input === el.useGeometryUniverses) {
           calculateNeighborhoods();
-          seedWorld();
+          render();
         } else if (input === el.useBitLayers) {
           render();
         } else if (input === el.gridRadius) {
@@ -1857,9 +1870,6 @@
         } else if (restartIds.has(input.id)) {
           calculateNeighborhoods();
           seedWorld();
-        } else if (["universes", "sides", "radiusAugment", "corners"].includes(input.id)) {
-          calculateNeighborhoods();
-          render();
         } else {
           render();
         }

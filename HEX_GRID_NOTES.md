@@ -74,10 +74,12 @@ range of `(2R + 1) x (2R + 1)` axial addresses. This is still an implementation
 compromise rather than a true finite hexagonal disk, but it presents the size in
 terms of radius instead of square-grid width and height.
 
-Changing `Rotational universe differentiation` reseeds the world. Seeded Life
-patterns are physically placed using the current universe basis vectors, so
-turning differentiation off after seeding would otherwise leave many patterns in
-orientations that are no longer valid for the single remaining universe.
+`Rotational universe differentiation` does not change the number of universes.
+When it is off, the selected universes remain as separate masks/lanes but share
+the same geometry, and universe-tinted birth/seed color bias is disabled so bit
+slicing can dominate color behavior. The `1 / saved` button beside `Universes`
+is the explicit shortcut for switching between a single universe and the last
+non-one universe count.
 
 ## Future Rule-Neighborhood Families
 
