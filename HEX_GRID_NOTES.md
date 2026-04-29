@@ -51,23 +51,18 @@ The Life neighborhood is still square-rule-like: each universe uses eight
 offsets derived from the two basis vectors: plus/minus both axes and the four
 corner sums/differences.
 
-## Grid Element Selection
+## Internal Grid Selection
 
-The first draft now exposes a `Grid element` rendering control in
-`Hex_Multomaton.html`:
+Cells should render as circular markers regardless of the internal grid. A cell
+may participate in multiple universe-local neighborhoods, so the visual cell
+shape should not reveal a single grid shape or neighborhood orientation.
 
-- `hexagon`: cells are drawn as hexagonal elements on the axial point lattice.
-- `triangle`: cells are drawn as alternating triangular elements on the same
-  underlying point lattice.
-- `square`: cells are drawn as square markers on the same underlying point
-  lattice. This is a visual comparison mode, not the original square-grid app.
-- `circle centers`: a neutral reference view that emphasizes the cell centers
-  rather than a tiling shape. It is not a separate grid; it is the same
-  underlying lattice with the cells rendered as disks.
+The `Internal grid` control in `Hex_Multomaton.html` is currently a placeholder
+for computational lattice choices. The only implemented internal grid in this
+draft is the hexagonal lattice. Planned options include triangular, square, and
+possibly deltoidal/rhombus tilings.
 
-This is currently a rendering comparison, not a change to the Life rules. The
-universe-local x/y axes and eight-neighbor square-rule neighborhoods are still
-chosen from the same axial lattice vectors.
+The original square-grid version remains preserved in `Sq_Multomaton.html`.
 
 ## Future Rule-Neighborhood Families
 
@@ -81,5 +76,5 @@ and tested separately:
 - Hexagonal nearest-neighbor neighborhood.
 - Extended-radius versions of the above.
 
-These should be treated as rule geometry choices, distinct from the visual
-`Grid element` rendering control.
+These should be treated as rule geometry choices, distinct from the internal
+grid/lattice choice.
