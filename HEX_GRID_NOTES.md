@@ -69,7 +69,9 @@ and picking. Implemented options:
   projection, but still with circular cell markers.
 - `rhombic lattice`: a rhombille-like repeating substrate. The x-address modulo
   three selects one of three rhombi inside each projected hex cell, as though a
-  hexagonal tiling were divided radially into three equal rhombic parts.
+  hexagonal tiling were divided radially into three equal rhombic parts. The
+  composite hex geometry is rotated 30 degrees so the three rhombus orientations
+  line up with the intended symmetric rhombille pattern.
 
 More exotic deltoidal or nonperiodic tilings remain future possibilities.
 

@@ -632,6 +632,13 @@
       const parity = mod(q + r, 2);
       return [q * .5, r * h + (parity ? h * 2 / 3 : h / 3)];
     }
+    function rotatePlanePoint(x, y, angle) {
+      const ca = Math.cos(angle), sa = Math.sin(angle);
+      return [x * ca - y * sa, x * sa + y * ca];
+    }
+    function rhombilleRotation() {
+      return Math.PI / 6;
+    }
     function rhombusToPlane(q, r) {
       const h = Math.sqrt(3) * .5;
       const radius = 1 / Math.sqrt(3);
@@ -649,9 +656,12 @@
         const a = i * TAU / 6;
         verts.push([cx + Math.cos(a) * radius, cy + Math.sin(a) * radius]);
       }
-      if (type === 0) return [[cx, cy], verts[5], verts[0], verts[1]];
-      if (type === 1) return [[cx, cy], verts[1], verts[2], verts[3]];
-      return [[cx, cy], verts[3], verts[4], verts[5]];
+      const points = type === 0
+        ? [[cx, cy], verts[5], verts[0], verts[1]]
+        : type === 1
+          ? [[cx, cy], verts[1], verts[2], verts[3]]
+          : [[cx, cy], verts[3], verts[4], verts[5]];
+      return points.map(([x, y]) => rotatePlanePoint(x, y, rhombilleRotation()));
     }
     function axialToPlane(q, r) {
       const grid = internalGrid();
@@ -1768,8 +1778,9 @@
         approxQ = planeX * 2;
         approxR = planeY / (Math.sqrt(3) * .5);
       } else if (internalGrid() === "rhombus") {
-        approxR = planeY / (Math.sqrt(3) * .5);
-        approxQ = (planeX - approxR * .5) * 3 + 1;
+        const [rx, ry] = rotatePlanePoint(planeX, planeY, -rhombilleRotation());
+        approxR = ry / (Math.sqrt(3) * .5);
+        approxQ = (rx - approxR * .5) * 3 + 1;
       } else {
         approxR = planeY / (Math.sqrt(3) * .5);
         approxQ = planeX - approxR * .5;
