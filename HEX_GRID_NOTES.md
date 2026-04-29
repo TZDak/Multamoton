@@ -50,3 +50,18 @@ Each universe chooses two axial basis vectors by scoring:
 The Life neighborhood is still square-rule-like: each universe uses eight
 offsets derived from the two basis vectors: plus/minus both axes and the four
 corner sums/differences.
+
+## Grid Element Selection
+
+The first draft now exposes a `Grid element` rendering control in
+`Hex_Multomaton.html`:
+
+- `hexagon`: cells are drawn as hexagonal elements on the axial point lattice.
+- `triangle`: cells are drawn as alternating triangular elements on the same
+  underlying point lattice.
+- `circle centers`: a neutral reference view that emphasizes the cell centers
+  rather than a tiling shape.
+
+This is currently a rendering comparison, not a change to the Life rules. The
+universe-local x/y axes and eight-neighbor square-rule neighborhoods are still
+chosen from the same axial lattice vectors.

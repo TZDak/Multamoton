@@ -388,6 +388,11 @@
           <option value="lineage">lineage debug</option>
           <option value="alive">alive mask</option>
         </select></div>
+        <div class="row"><label for="gridElement">Grid element</label><select id="gridElement">
+          <option value="hex" selected>hexagon</option>
+          <option value="triangle">triangle</option>
+          <option value="circle">circle centers</option>
+        </select></div>
         <div class="row"><label for="spread">Glass size</label><input id="spread" type="range" min="0" max="100" value="67"></div>
         <div class="row"><label for="haloOpacity">Glass opacity</label><input id="haloOpacity" type="range" min="0" max="100" value="100"></div>
         <div class="row"><label for="haloDensity">Ghost size</label><input id="haloDensity" type="range" min="0" max="100" value="100"></div>
@@ -440,7 +445,7 @@
       startThings: $("startThings"), randomPlacement: $("randomPlacement"), itemRotation: $("itemRotation"), seedBits: $("seedBits"), density: $("density"),
       bitGliders: $("bitGliders"), bitSampler: $("bitSampler"), bitBlinker: $("bitBlinker"), bitRandom: $("bitRandom"), bitRandomColor: $("bitRandomColor"), clearWorld: $("clearWorld"),
       uBlinker: $("uBlinker"), uGlider0: $("uGlider0"), uGlider1: $("uGlider1"), uAcorn: $("uAcorn"), uTen: $("uTen"), uOPent: $("uOPent"), uQPent: $("uQPent"), uRPent: $("uRPent"), uTPent: $("uTPent"), uXPent: $("uXPent"),
-      renderMode: $("renderMode"), spread: $("spread"), haloDensity: $("haloDensity"), haloOpacity: $("haloOpacity"), ghostOpacity: $("ghostOpacity"), oversize: $("oversize"), mirrorBorders: $("mirrorBorders"), wobble: $("wobble"), tiltSpeed: $("tiltSpeed"), tiltStart: $("tiltStart"), maxTilt: $("maxTilt"),
+      renderMode: $("renderMode"), gridElement: $("gridElement"), spread: $("spread"), haloDensity: $("haloDensity"), haloOpacity: $("haloOpacity"), ghostOpacity: $("ghostOpacity"), oversize: $("oversize"), mirrorBorders: $("mirrorBorders"), wobble: $("wobble"), tiltSpeed: $("tiltSpeed"), tiltStart: $("tiltStart"), maxTilt: $("maxTilt"),
       paintColor: $("paintColor"), paintUniverse: $("paintUniverse"), paintMode: $("paintMode"), brush: $("brush"), paintSwatch: $("paintSwatch"),
       modeOut: $("modeOut"), generationOut: $("generationOut"), liveOut: $("liveOut"), birthOut: $("birthOut"), deathOut: $("deathOut"), survivalOut: $("survivalOut")
     };
@@ -1424,6 +1429,32 @@
       target.closePath();
       target.fill();
     }
+    function drawTriangleCore(target, cx, cy, radius, c, x, y) {
+      target.fillStyle = `rgb(${red(c)},${green(c)},${blue(c)})`;
+      const up = mod(x + y, 2) === 0;
+      const start = up ? -Math.PI / 2 : Math.PI / 2;
+      target.beginPath();
+      for (let i = 0; i < 3; i++) {
+        const a = start + i * TAU / 3;
+        const px = cx + Math.cos(a) * radius;
+        const py = cy + Math.sin(a) * radius;
+        if (i) target.lineTo(px, py);
+        else target.moveTo(px, py);
+      }
+      target.closePath();
+      target.fill();
+    }
+    function drawCircleCore(target, cx, cy, radius, c) {
+      target.fillStyle = `rgb(${red(c)},${green(c)},${blue(c)})`;
+      target.beginPath();
+      target.arc(cx, cy, radius, 0, TAU);
+      target.fill();
+    }
+    function drawGridCore(target, cx, cy, radius, c, x, y) {
+      if (el.gridElement.value === "triangle") drawTriangleCore(target, cx, cy, radius * 1.18, c, x, y);
+      else if (el.gridElement.value === "circle") drawCircleCore(target, cx, cy, radius * .92, c);
+      else drawHexCore(target, cx, cy, radius, c);
+    }
     function drawGlassCell(target, cx, cy, r, alpha, rr, gg, bb) {
       if (r <= 0 || alpha <= 0) return;
       target.fillStyle = `rgba(${rr},${gg},${bb},${alpha})`;
@@ -1499,7 +1530,7 @@
           const px = baseX + shiftX;
           const py = baseY + shiftY;
           if (px + coreRadius >= 0 && py + coreRadius >= 0 && px - coreRadius <= sceneW && py - coreRadius <= sceneH) {
-            drawHexCore(sceneCtx, px, py, coreRadius, c);
+            drawGridCore(sceneCtx, px, py, coreRadius, c, x, y);
           }
         }
       }
@@ -1692,6 +1723,7 @@
       el.tiltSpeed.value = 13;
       el.tiltStart.value = 20;
       el.maxTilt.value = 10;
+      el.gridElement.value = "hex";
       el.sepR.checked = el.sepG.checked = el.sepB.checked = false;
       el.useBitLayers.checked = true;
       el.sliceMode.value = "full";
