@@ -233,7 +233,7 @@
         <label class="check"><input id="useBitLayers" type="checkbox" checked> Bit-layer differentiation</label>
         <div class="row"><label for="gridElement">Internal grid</label><select id="gridElement">
           <option value="hex" selected>hexagonal lattice</option>
-          <option value="triangle" disabled>triangular lattice (planned)</option>
+          <option value="triangle">triangular lattice</option>
           <option value="square">square lattice</option>
           <option value="rhombus" disabled>deltoidal/rhombus tiling (planned)</option>
         </select></div>
@@ -621,8 +621,15 @@
     function internalGrid() {
       return el.gridElement?.value || "hex";
     }
+    function triangularToPlane(q, r) {
+      const h = Math.sqrt(3) * .5;
+      const parity = mod(q + r, 2);
+      return [q * .5, r * h + (parity ? h * 2 / 3 : h / 3)];
+    }
     function axialToPlane(q, r) {
-      if (internalGrid() === "square") return [q, r];
+      const grid = internalGrid();
+      if (grid === "square") return [q, r];
+      if (grid === "triangle") return triangularToPlane(q, r);
       return [q + r * .5, r * Math.sqrt(3) * .5];
     }
     function axialToSceneDelta(q, r) {
@@ -661,7 +668,8 @@
       return Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
     }
     function axialNorm(q, r) {
-      if (internalGrid() === "square") return Math.max(Math.abs(q), Math.abs(r));
+      const grid = internalGrid();
+      if (grid === "square" || grid === "triangle") return Math.max(Math.abs(q), Math.abs(r));
       return Math.max(Math.abs(q), Math.abs(r), Math.abs(-q - r));
     }
     function hexVectorCandidates(radius) {
@@ -793,7 +801,8 @@
       const universeText = n === 1 ? `1 universe` : `${n} universes`;
       const geometryText = geometryDifferentiationEnabled() ? "unique geometry" : "shared geometry";
       const sq = bases.length ? bases.reduce((s, b) => s + (b.squareError || 0), 0) / bases.length : 0;
-      const gridName = internalGrid() === "square" ? "square" : "hex";
+      const gridNames = { square: "square", triangle: "triangle", hex: "hex" };
+      const gridName = gridNames[internalGrid()] || internalGrid();
       el.neighborhoodOut.textContent = `${gridName} radius ${radiusUsed}; ${universeText}; ${geometryText}; ${allOffsets.length} offsets; square error ${sq.toFixed(3)}`;
     }
 
@@ -1599,13 +1608,23 @@
       const sceneY = ry / view.scale + view.sceneH / 2;
       const planeX = (sceneX - hexLayout.borderX + hexLayout.minX) / HEX_RENDER_SCALE;
       const planeY = (sceneY - hexLayout.borderY + hexLayout.minY) / HEX_RENDER_SCALE;
-      const approxR = internalGrid() === "square" ? planeY : planeY / (Math.sqrt(3) * .5);
-      const approxQ = internalGrid() === "square" ? planeX : planeX - approxR * .5;
+      let approxQ, approxR;
+      if (internalGrid() === "square") {
+        approxQ = planeX;
+        approxR = planeY;
+      } else if (internalGrid() === "triangle") {
+        approxQ = planeX * 2;
+        approxR = planeY / (Math.sqrt(3) * .5);
+      } else {
+        approxR = planeY / (Math.sqrt(3) * .5);
+        approxQ = planeX - approxR * .5;
+      }
       let best = null;
       const q0 = Math.round(approxQ);
       const r0 = Math.round(approxR);
-      for (let dr = -2; dr <= 2; dr++) {
-        for (let dq = -2; dq <= 2; dq++) {
+      const searchRadius = internalGrid() === "triangle" ? 5 : 2;
+      for (let dr = -searchRadius; dr <= searchRadius; dr++) {
+        for (let dq = -searchRadius; dq <= searchRadius; dq++) {
           const q = q0 + dq, r = r0 + dr;
           const p = axialToPlane(q, r);
           const d = Math.hypot(p[0] - planeX, p[1] - planeY);

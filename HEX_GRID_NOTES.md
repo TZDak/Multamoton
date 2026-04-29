@@ -62,10 +62,13 @@ lattice used for cell-center placement, distance scoring, universe basis search,
 and picking. Implemented options:
 
 - `hexagonal lattice`: axial hex coordinates rendered in hex projection.
+- `triangular lattice`: alternating triangular-cell centers rendered from
+  triangle centroids, with the same universe-local square Life basis search
+  layered on top.
 - `square lattice`: ordinary integer grid coordinates rendered in square
   projection, but still with circular cell markers.
 
-Planned options include triangular and possibly deltoidal/rhombus tilings.
+Planned options include possibly deltoidal/rhombus tilings.
 
 The original square-grid version remains preserved in `Sq_Multomaton.html`.
 
