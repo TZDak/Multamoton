@@ -235,7 +235,7 @@
           <option value="hex" selected>hexagonal lattice</option>
           <option value="triangle">triangular lattice</option>
           <option value="square">square lattice</option>
-          <option value="rhombus" disabled>deltoidal/rhombus tiling (planned)</option>
+          <option value="rhombus">rhombic lattice</option>
         </select></div>
         <div class="row"><label for="gridRadius">Grid radius</label><input id="gridRadius" type="number" min="20" max="1000" value="200"></div>
         <div class="readout" id="profileOut"></div>
@@ -626,10 +626,15 @@
       const parity = mod(q + r, 2);
       return [q * .5, r * h + (parity ? h * 2 / 3 : h / 3)];
     }
+    function rhombusToPlane(q, r) {
+      const angle = Math.PI / 4;
+      return [q + r * Math.cos(angle), r * Math.sin(angle)];
+    }
     function axialToPlane(q, r) {
       const grid = internalGrid();
       if (grid === "square") return [q, r];
       if (grid === "triangle") return triangularToPlane(q, r);
+      if (grid === "rhombus") return rhombusToPlane(q, r);
       return [q + r * .5, r * Math.sqrt(3) * .5];
     }
     function axialToSceneDelta(q, r) {
@@ -669,7 +674,7 @@
     }
     function axialNorm(q, r) {
       const grid = internalGrid();
-      if (grid === "square" || grid === "triangle") return Math.max(Math.abs(q), Math.abs(r));
+      if (grid === "square" || grid === "triangle" || grid === "rhombus") return Math.max(Math.abs(q), Math.abs(r));
       return Math.max(Math.abs(q), Math.abs(r), Math.abs(-q - r));
     }
     function hexVectorCandidates(radius) {
@@ -801,7 +806,7 @@
       const universeText = n === 1 ? `1 universe` : `${n} universes`;
       const geometryText = geometryDifferentiationEnabled() ? "unique geometry" : "shared geometry";
       const sq = bases.length ? bases.reduce((s, b) => s + (b.squareError || 0), 0) / bases.length : 0;
-      const gridNames = { square: "square", triangle: "triangle", hex: "hex" };
+      const gridNames = { square: "square", triangle: "triangle", rhombus: "rhombic", hex: "hex" };
       const gridName = gridNames[internalGrid()] || internalGrid();
       el.neighborhoodOut.textContent = `${gridName} radius ${radiusUsed}; ${universeText}; ${geometryText}; ${allOffsets.length} offsets; square error ${sq.toFixed(3)}`;
     }
@@ -1615,6 +1620,10 @@
       } else if (internalGrid() === "triangle") {
         approxQ = planeX * 2;
         approxR = planeY / (Math.sqrt(3) * .5);
+      } else if (internalGrid() === "rhombus") {
+        const angle = Math.PI / 4;
+        approxR = planeY / Math.sin(angle);
+        approxQ = planeX - approxR * Math.cos(angle);
       } else {
         approxR = planeY / (Math.sqrt(3) * .5);
         approxQ = planeX - approxR * .5;

@@ -67,8 +67,12 @@ and picking. Implemented options:
   layered on top.
 - `square lattice`: ordinary integer grid coordinates rendered in square
   projection, but still with circular cell markers.
+- `rhombic lattice`: oblique equal-edge 45-degree lattice projection with
+  parallelogram address/radius bounds. This intentionally differs from
+  `hexagonal lattice`, which uses a 60-degree axial projection and a hex-style
+  axial radius shell.
 
-Planned options include possibly deltoidal/rhombus tilings.
+More exotic deltoidal or nonperiodic tilings remain future possibilities.
 
 The original square-grid version remains preserved in `Sq_Multomaton.html`.
 
