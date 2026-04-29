@@ -390,7 +390,7 @@
         <div class="row"><label for="gridElement">Internal grid</label><select id="gridElement">
           <option value="hex" selected>hexagonal lattice</option>
           <option value="triangle" disabled>triangular lattice (planned)</option>
-          <option value="square" disabled>square lattice (use Sq_Multomaton)</option>
+          <option value="square">square lattice</option>
           <option value="rhombus" disabled>deltoidal/rhombus tiling (planned)</option>
         </select></div>
         <div class="row"><label for="spread">Glass size</label><input id="spread" type="range" min="0" max="100" value="67"></div>
@@ -615,7 +615,11 @@
       return out.length ? out : [...Array(n).keys()];
     }
 
+    function internalGrid() {
+      return el.gridElement?.value || "hex";
+    }
     function axialToPlane(q, r) {
+      if (internalGrid() === "square") return [q, r];
       return [q + r * .5, r * Math.sqrt(3) * .5];
     }
     function axialToSceneDelta(q, r) {
@@ -654,10 +658,12 @@
       return Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
     }
     function axialNorm(q, r) {
+      if (internalGrid() === "square") return Math.max(Math.abs(q), Math.abs(r));
       return Math.max(Math.abs(q), Math.abs(r), Math.abs(-q - r));
     }
     function hexVectorCandidates(radius) {
-      if (hexVectorCache.has(radius)) return hexVectorCache.get(radius);
+      const cacheKey = `${internalGrid()}:${radius}`;
+      if (hexVectorCache.has(cacheKey)) return hexVectorCache.get(cacheKey);
       const out = [];
       for (let q = -radius; q <= radius; q++) {
         for (let r = -radius; r <= radius; r++) {
@@ -667,11 +673,11 @@
           }
         }
       }
-      hexVectorCache.set(radius, out);
+      hexVectorCache.set(cacheKey, out);
       return out;
     }
     function chooseHexBasis(orientationFraction, radius) {
-      const cacheKey = `${orientationFraction.toFixed(8)}:${radius}`;
+      const cacheKey = `${internalGrid()}:${orientationFraction.toFixed(8)}:${radius}`;
       if (hexBasisCache.has(cacheKey)) return hexBasisCache.get(cacheKey);
       const target = orientationFraction * TAU - Math.PI / 2;
       const vectors = hexVectorCandidates(radius);
@@ -782,7 +788,8 @@
       updatePaintUniverses();
       const universeText = n === 1 ? `1 universe` : `${n} universes`;
       const sq = bases.length ? bases.reduce((s, b) => s + (b.squareError || 0), 0) / bases.length : 0;
-      el.neighborhoodOut.textContent = `hex radius ${radiusUsed}; ${universeText}; ${allOffsets.length} offsets; square error ${sq.toFixed(3)}`;
+      const gridName = internalGrid() === "square" ? "square" : "hex";
+      el.neighborhoodOut.textContent = `${gridName} radius ${radiusUsed}; ${universeText}; ${allOffsets.length} offsets; square error ${sq.toFixed(3)}`;
     }
 
     function bitMaskFromPositions(start, width) {
@@ -1569,8 +1576,8 @@
       const sceneY = ry / view.scale + view.sceneH / 2;
       const planeX = (sceneX - hexLayout.borderX + hexLayout.minX) / HEX_RENDER_SCALE;
       const planeY = (sceneY - hexLayout.borderY + hexLayout.minY) / HEX_RENDER_SCALE;
-      const approxR = planeY / (Math.sqrt(3) * .5);
-      const approxQ = planeX - approxR * .5;
+      const approxR = internalGrid() === "square" ? planeY : planeY / (Math.sqrt(3) * .5);
+      const approxQ = internalGrid() === "square" ? planeX : planeX - approxR * .5;
       let best = null;
       const q0 = Math.round(approxQ);
       const r0 = Math.round(approxR);
@@ -1813,7 +1820,7 @@
       });
     });
 
-    const restartIds = new Set(["gridRadius", "universes", "sides", "radiusAugment", "corners", "startThings", "randomPlacement", "itemRotation", "uBlinker", "uGlider0", "uGlider1", "uAcorn", "uTen", "uOPent", "uQPent", "uRPent", "uTPent", "uXPent"]);
+    const restartIds = new Set(["gridRadius", "gridElement", "universes", "sides", "radiusAugment", "corners", "startThings", "randomPlacement", "itemRotation", "uBlinker", "uGlider0", "uGlider1", "uAcorn", "uTen", "uOPent", "uQPent", "uRPent", "uTPent", "uXPent"]);
     for (const input of document.querySelectorAll("input, select")) {
       input.addEventListener("change", () => {
         if (input === el.paintColor) {

@@ -57,10 +57,15 @@ Cells should render as circular markers regardless of the internal grid. A cell
 may participate in multiple universe-local neighborhoods, so the visual cell
 shape should not reveal a single grid shape or neighborhood orientation.
 
-The `Internal grid` control in `Hex_Multomaton.html` is currently a placeholder
-for computational lattice choices. The only implemented internal grid in this
-draft is the hexagonal lattice. Planned options include triangular, square, and
-possibly deltoidal/rhombus tilings.
+The `Internal grid` control in `Hex_Multomaton.html` selects the computational
+lattice used for cell-center placement, distance scoring, universe basis search,
+and picking. Implemented options:
+
+- `hexagonal lattice`: axial hex coordinates rendered in hex projection.
+- `square lattice`: ordinary integer grid coordinates rendered in square
+  projection, but still with circular cell markers.
+
+Planned options include triangular and possibly deltoidal/rhombus tilings.
 
 The original square-grid version remains preserved in `Sq_Multomaton.html`.
 
