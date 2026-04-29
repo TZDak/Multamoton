@@ -74,6 +74,11 @@ range of `(2R + 1) x (2R + 1)` axial addresses. This is still an implementation
 compromise rather than a true finite hexagonal disk, but it presents the size in
 terms of radius instead of square-grid width and height.
 
+Changing `Rotational universe differentiation` reseeds the world. Seeded Life
+patterns are physically placed using the current universe basis vectors, so
+turning differentiation off after seeding would otherwise leave many patterns in
+orientations that are no longer valid for the single remaining universe.
+
 ## Future Rule-Neighborhood Families
 
 Possible future rule-level neighborhood families should be added one at a time
