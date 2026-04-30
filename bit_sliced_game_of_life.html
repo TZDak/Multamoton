@@ -1,0 +1,669 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bit-Slice Life</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #111416;
+      --panel: #1b2024;
+      --panel-2: #242a30;
+      --line: #38414a;
+      --text: #eef3f6;
+      --muted: #9aa8b3;
+      --accent: #7ad7ff;
+      --accent-2: #ffd166;
+      --danger: #ff6b6b;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    header {
+      border-bottom: 1px solid var(--line);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      background: #15191c;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 650;
+      letter-spacing: 0;
+    }
+
+    .stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 16px;
+      color: var(--muted);
+      font-size: 13px;
+      justify-content: flex-end;
+    }
+
+    .stats strong {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: minmax(280px, 360px) 1fr;
+      min-height: 0;
+    }
+
+    aside {
+      border-right: 1px solid var(--line);
+      background: var(--panel);
+      overflow: auto;
+      padding: 14px;
+    }
+
+    .stage {
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      place-items: center;
+      padding: 14px;
+      background: #0a0c0e;
+    }
+
+    canvas {
+      display: block;
+      width: min(100%, calc((100vh - 96px) * 1.333));
+      max-height: calc(100vh - 96px);
+      aspect-ratio: 4 / 3;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      border: 1px solid #303840;
+      background: #000;
+      cursor: crosshair;
+    }
+
+    section {
+      border-bottom: 1px solid var(--line);
+      padding: 0 0 14px;
+      margin: 0 0 14px;
+    }
+
+    section:last-child {
+      border-bottom: 0;
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    h2 {
+      margin: 0 0 10px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 10px;
+      margin: 9px 0;
+    }
+
+    label {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    input, select, button {
+      font: inherit;
+    }
+
+    input[type="number"] {
+      width: 82px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 6px 7px;
+      background: #101316;
+      color: var(--text);
+    }
+
+    input[type="range"] {
+      width: 150px;
+      accent-color: var(--accent);
+    }
+
+    button {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 7px 10px;
+      background: var(--panel-2);
+      color: var(--text);
+      cursor: pointer;
+      min-height: 34px;
+    }
+
+    button:hover {
+      border-color: var(--accent);
+    }
+
+    button.primary {
+      background: #123447;
+      border-color: #23627f;
+    }
+
+    button.warn {
+      color: #ffe7e7;
+      border-color: #6e3434;
+      background: #351c1c;
+    }
+
+    .button-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .preset-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+
+    .swatches {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .swatch {
+      min-height: 36px;
+      padding: 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .swatch::before {
+      content: "";
+      position: absolute;
+      inset: 5px;
+      border-radius: 4px;
+      background: var(--swatch);
+      border: 1px solid rgba(255,255,255,.25);
+    }
+
+    .swatch.active {
+      border-color: var(--accent-2);
+      box-shadow: 0 0 0 1px var(--accent-2) inset;
+    }
+
+    .bits {
+      padding: 8px;
+      min-height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #101316;
+      color: var(--accent-2);
+      font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+      margin-top: 8px;
+    }
+
+    @media (max-width: 860px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+
+      aside {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+        max-height: 46vh;
+      }
+
+      canvas {
+        width: 100%;
+        max-height: 52vh;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Bit-Slice Life</h1>
+    <div class="stats" aria-live="polite">
+      <span>Step <strong id="stepReadout">0</strong></span>
+      <span>Origin <strong id="originReadout">0</strong></span>
+      <span>Nonblack <strong id="nonblackReadout">0</strong></span>
+      <span>White <strong id="whiteReadout">0</strong></span>
+      <span>Live bits <strong id="liveBitsReadout">0</strong></span>
+    </div>
+  </header>
+
+  <main>
+    <aside>
+      <section>
+        <h2>Run</h2>
+        <div class="button-grid">
+          <button id="playPause" class="primary">Play</button>
+          <button id="singleStep">Step</button>
+          <button id="resetOrigin">Reset Phase</button>
+          <button id="clear" class="warn">Clear</button>
+        </div>
+        <div class="row">
+          <label for="speed">Speed</label>
+          <input id="speed" type="range" min="1" max="60" value="12">
+        </div>
+      </section>
+
+      <section>
+        <h2>Bit Window</h2>
+        <div class="row">
+          <label for="bitCount">Bits at a time</label>
+          <input id="bitCount" type="number" min="-24" max="24" value="-8">
+        </div>
+        <div class="row">
+          <label for="advance">Advance</label>
+          <input id="advance" type="number" min="-24" max="24" value="-3">
+        </div>
+        <div class="row">
+          <label for="origin">Origin bit</label>
+          <input id="origin" type="number" min="0" max="23" value="0">
+        </div>
+        <div class="bits" id="bitsReadout"></div>
+        <p class="hint">Negative bit counts walk downward from the origin. Bit 0 is the least significant blue bit; bit 23 is the most significant red bit.</p>
+      </section>
+
+      <section>
+        <h2>Presets</h2>
+        <div class="preset-grid">
+          <button data-preset="2,1">2 bits, advance 1</button>
+          <button data-preset="23,1">23 bits, advance 1</button>
+          <button data-preset="-8,-3">-8 bits, advance -3</button>
+          <button data-preset="8,8">8 bits, advance 8</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>Seeds</h2>
+        <div class="button-grid">
+          <button id="glider">Glider Pack</button>
+          <button id="blinker">White Blinker</button>
+          <button id="random">Random</button>
+          <button id="randomColor">Random Color</button>
+        </div>
+        <div class="row">
+          <label for="density">Density</label>
+          <input id="density" type="range" min="1" max="60" value="18">
+        </div>
+      </section>
+
+      <section>
+        <h2>Paint</h2>
+        <div class="swatches" id="swatches"></div>
+        <p class="hint">Click or drag on the canvas to paint. Right-click paints black.</p>
+      </section>
+    </aside>
+
+    <div class="stage">
+      <canvas id="life" width="128" height="96"></canvas>
+    </div>
+  </main>
+
+  <script>
+    const BITS = 24;
+    const FULL = 0xFFFFFF;
+    const W = 128;
+    const H = 96;
+
+    const canvas = document.getElementById("life");
+    const ctx = canvas.getContext("2d", { alpha: false });
+    const image = ctx.createImageData(W, H);
+
+    let grid = new Uint32Array(W * H);
+    let next = new Uint32Array(W * H);
+    let running = false;
+    let stepNumber = 0;
+    let origin = 0;
+    let lastFrame = 0;
+    let paintValue = FULL;
+
+    const el = {
+      playPause: document.getElementById("playPause"),
+      singleStep: document.getElementById("singleStep"),
+      resetOrigin: document.getElementById("resetOrigin"),
+      clear: document.getElementById("clear"),
+      speed: document.getElementById("speed"),
+      bitCount: document.getElementById("bitCount"),
+      advance: document.getElementById("advance"),
+      origin: document.getElementById("origin"),
+      bitsReadout: document.getElementById("bitsReadout"),
+      stepReadout: document.getElementById("stepReadout"),
+      originReadout: document.getElementById("originReadout"),
+      nonblackReadout: document.getElementById("nonblackReadout"),
+      whiteReadout: document.getElementById("whiteReadout"),
+      liveBitsReadout: document.getElementById("liveBitsReadout"),
+      density: document.getElementById("density"),
+      swatches: document.getElementById("swatches"),
+      glider: document.getElementById("glider"),
+      blinker: document.getElementById("blinker"),
+      random: document.getElementById("random"),
+      randomColor: document.getElementById("randomColor")
+    };
+
+    const swatches = [
+      ["White", 0xFFFFFF],
+      ["Red", 0xFF0000],
+      ["Green", 0x00FF00],
+      ["Blue", 0x0000FF],
+      ["Yellow", 0xFFFF00],
+      ["Cyan", 0x00FFFF],
+      ["Magenta", 0xFF00FF],
+      ["Black", 0x000000]
+    ];
+
+    function mod(n, m) {
+      return ((n % m) + m) % m;
+    }
+
+    function normalizeCount(value) {
+      let count = Number.parseInt(value, 10);
+      if (!Number.isFinite(count) || count === 0) count = 1;
+      if (count > BITS) count = BITS;
+      if (count < -BITS) count = -BITS;
+      return count;
+    }
+
+    function normalizeAdvance(value) {
+      let advance = Number.parseInt(value, 10);
+      if (!Number.isFinite(advance)) advance = 1;
+      return advance;
+    }
+
+    function selectedBits() {
+      const count = normalizeCount(el.bitCount.value);
+      const direction = count < 0 ? -1 : 1;
+      const length = Math.abs(count);
+      const bits = [];
+      for (let i = 0; i < length; i++) {
+        bits.push(mod(origin + direction * i, BITS));
+      }
+      return bits;
+    }
+
+    function selectedMask(bits) {
+      let mask = 0;
+      for (const bit of bits) mask |= (1 << bit);
+      return mask >>> 0;
+    }
+
+    function idx(x, y) {
+      return y * W + x;
+    }
+
+    function stepLife() {
+      const bits = selectedBits();
+      const mask = selectedMask(bits);
+      next.set(grid);
+
+      for (let y = 0; y < H; y++) {
+        const ym = y === 0 ? H - 1 : y - 1;
+        const yp = y === H - 1 ? 0 : y + 1;
+
+        for (let x = 0; x < W; x++) {
+          const xm = x === 0 ? W - 1 : x - 1;
+          const xp = x === W - 1 ? 0 : x + 1;
+
+          const i = idx(x, y);
+          const n00 = grid[idx(xm, ym)];
+          const n01 = grid[idx(x, ym)];
+          const n02 = grid[idx(xp, ym)];
+          const n10 = grid[idx(xm, y)];
+          const n11 = grid[i];
+          const n12 = grid[idx(xp, y)];
+          const n20 = grid[idx(xm, yp)];
+          const n21 = grid[idx(x, yp)];
+          const n22 = grid[idx(xp, yp)];
+
+          if (((n00 | n01 | n02 | n10 | n11 | n12 | n20 | n21 | n22) & mask) === 0) {
+            continue;
+          }
+
+          let newSelected = 0;
+          for (const bit of bits) {
+            const b = 1 << bit;
+            let neighbors = 0;
+            if (n00 & b) neighbors++;
+            if (n01 & b) neighbors++;
+            if (n02 & b) neighbors++;
+            if (n10 & b) neighbors++;
+            if (n12 & b) neighbors++;
+            if (n20 & b) neighbors++;
+            if (n21 & b) neighbors++;
+            if (n22 & b) neighbors++;
+
+            const alive = (n11 & b) !== 0;
+            if (neighbors === 3 || (alive && neighbors === 2)) {
+              newSelected |= b;
+            }
+          }
+
+          next[i] = ((next[i] & ~mask) | newSelected) >>> 0;
+        }
+      }
+
+      const old = grid;
+      grid = next;
+      next = old;
+      stepNumber++;
+      origin = mod(origin + normalizeAdvance(el.advance.value), BITS);
+      el.origin.value = origin;
+    }
+
+    function render() {
+      let nonblack = 0;
+      let white = 0;
+      let liveBits = 0;
+      const data = image.data;
+
+      for (let i = 0; i < grid.length; i++) {
+        const value = grid[i] & FULL;
+        if (value !== 0) nonblack++;
+        if (value === FULL) white++;
+        liveBits += bitCount24(value);
+
+        const p = i * 4;
+        data[p] = (value >> 16) & 255;
+        data[p + 1] = (value >> 8) & 255;
+        data[p + 2] = value & 255;
+        data[p + 3] = 255;
+      }
+
+      ctx.putImageData(image, 0, 0);
+      el.stepReadout.textContent = stepNumber;
+      el.originReadout.textContent = origin;
+      el.nonblackReadout.textContent = nonblack;
+      el.whiteReadout.textContent = white;
+      el.liveBitsReadout.textContent = liveBits;
+      el.bitsReadout.textContent = selectedBits().join(", ");
+    }
+
+    function bitCount24(value) {
+      value &= FULL;
+      value = value - ((value >>> 1) & 0x555555);
+      value = (value & 0x333333) + ((value >>> 2) & 0x333333);
+      return ((((value + (value >>> 4)) & 0x0F0F0F) * 0x010101) >>> 16) & 0xFF;
+    }
+
+    function clearGrid() {
+      grid.fill(0);
+      stepNumber = 0;
+      origin = Number.parseInt(el.origin.value, 10) || 0;
+      origin = mod(origin, BITS);
+      el.origin.value = origin;
+      render();
+    }
+
+    function addGlider(cx, cy, value = FULL) {
+      const cells = [[1,0], [2,1], [0,2], [1,2], [2,2]];
+      for (const [dx, dy] of cells) {
+        grid[idx(mod(cx + dx, W), mod(cy + dy, H))] = value;
+      }
+    }
+
+    function addGliderPack() {
+      addGlider(12, 12, 0xFFFFFF);
+      addGlider(36, 16, 0xFF0000);
+      addGlider(64, 20, 0x00FF00);
+      addGlider(92, 24, 0x0000FF);
+      addGlider(24, 52, 0xFFFF00);
+      addGlider(56, 58, 0x00FFFF);
+      addGlider(88, 64, 0xFF00FF);
+    }
+
+    function addBlinker(cx, cy, value = FULL) {
+      for (let dx = 0; dx < 3; dx++) {
+        grid[idx(mod(cx + dx, W), mod(cy, H))] = value;
+      }
+    }
+
+    function randomize(colorful) {
+      const density = Number(el.density.value) / 100;
+      for (let i = 0; i < grid.length; i++) {
+        if (Math.random() < density) {
+          grid[i] = colorful ? (Math.floor(Math.random() * FULL) + 1) : FULL;
+        } else {
+          grid[i] = 0;
+        }
+      }
+      stepNumber = 0;
+      origin = Number.parseInt(el.origin.value, 10) || 0;
+      origin = mod(origin, BITS);
+      render();
+    }
+
+    function canvasCell(event) {
+      const rect = canvas.getBoundingClientRect();
+      const x = Math.floor((event.clientX - rect.left) * W / rect.width);
+      const y = Math.floor((event.clientY - rect.top) * H / rect.height);
+      return [mod(x, W), mod(y, H)];
+    }
+
+    function paint(event) {
+      const [x, y] = canvasCell(event);
+      grid[idx(x, y)] = event.buttons === 2 ? 0 : paintValue;
+      render();
+    }
+
+    function tick(time) {
+      const targetMs = 1000 / Number(el.speed.value);
+      if (running && time - lastFrame >= targetMs) {
+        stepLife();
+        render();
+        lastFrame = time;
+      }
+      requestAnimationFrame(tick);
+    }
+
+    function setRunning(value) {
+      running = value;
+      el.playPause.textContent = running ? "Pause" : "Play";
+    }
+
+    function initSwatches() {
+      for (const [name, value] of swatches) {
+        const button = document.createElement("button");
+        button.className = "swatch";
+        button.title = name;
+        button.style.setProperty("--swatch", "#" + value.toString(16).padStart(6, "0"));
+        button.addEventListener("click", () => {
+          paintValue = value;
+          for (const item of el.swatches.children) item.classList.remove("active");
+          button.classList.add("active");
+        });
+        if (value === paintValue) button.classList.add("active");
+        el.swatches.appendChild(button);
+      }
+    }
+
+    el.playPause.addEventListener("click", () => setRunning(!running));
+    el.singleStep.addEventListener("click", () => {
+      stepLife();
+      render();
+    });
+    el.resetOrigin.addEventListener("click", () => {
+      origin = 0;
+      el.origin.value = origin;
+      render();
+    });
+    el.clear.addEventListener("click", clearGrid);
+    el.glider.addEventListener("click", () => {
+      clearGrid();
+      addGliderPack();
+      render();
+    });
+    el.blinker.addEventListener("click", () => {
+      clearGrid();
+      addBlinker(Math.floor(W / 2) - 1, Math.floor(H / 2));
+      render();
+    });
+    el.random.addEventListener("click", () => randomize(false));
+    el.randomColor.addEventListener("click", () => randomize(true));
+
+    document.querySelectorAll("[data-preset]").forEach(button => {
+      button.addEventListener("click", () => {
+        const [count, advance] = button.dataset.preset.split(",");
+        el.bitCount.value = count;
+        el.advance.value = advance;
+        render();
+      });
+    });
+
+    for (const input of [el.bitCount, el.advance, el.origin]) {
+      input.addEventListener("change", () => {
+        el.bitCount.value = normalizeCount(el.bitCount.value);
+        origin = mod(Number.parseInt(el.origin.value, 10) || 0, BITS);
+        el.origin.value = origin;
+        render();
+      });
+    }
+
+    canvas.addEventListener("contextmenu", event => event.preventDefault());
+    canvas.addEventListener("pointerdown", event => {
+      canvas.setPointerCapture(event.pointerId);
+      paint(event);
+    });
+    canvas.addEventListener("pointermove", event => {
+      if (event.buttons) paint(event);
+    });
+
+    initSwatches();
+    addGliderPack();
+    render();
+    requestAnimationFrame(tick);
+  </script>
+</body>
+</html>

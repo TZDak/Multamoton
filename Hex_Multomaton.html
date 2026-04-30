@@ -293,8 +293,20 @@
         </select></div>
         <div class="row" data-bit-control><label for="sliceSchedule">Bit schedule</label><select id="sliceSchedule">
           <option value="static" selected>all configured slices</option>
-          <option value="moving">moving window clock</option>
+          <option value="moving">moving window cycle</option>
         </select></div>
+        <div class="row" data-bit-control><label for="sliceLogic">Slice logic</label><select id="sliceLogic">
+          <option value="group" selected>grouped slice layer</option>
+          <option value="bits">per-bit Life in slice</option>
+        </select></div>
+        <div class="row" data-bit-control><label for="sliceClock">Slice clock</label><select id="sliceClock">
+          <option value="all" selected>all slices each step</option>
+          <option value="one">one slice each step</option>
+          <option value="periods">per-slice periods</option>
+        </select></div>
+        <div class="row" data-bit-control><label for="slicePeriods">Slice periods</label><input id="slicePeriods" type="text" value="1,2,4"></div>
+        <div class="row" data-bit-control><label for="slicePhases">Slice phases</label><input id="slicePhases" type="text" value="0,0,0"></div>
+        <label class="check" data-bit-control><input id="preserveInactiveSlices" type="checkbox" checked> Preserve inactive slice bits</label>
         <div class="row" data-bit-control><label for="bitsPerSlice">Bits per slice</label><input id="bitsPerSlice" type="number" min="-24" max="24" value="2"></div>
         <div class="row" data-bit-control><label for="sliceAdvance">Slice advance</label><input id="sliceAdvance" type="number" min="-24" max="24" value="1"></div>
         <div class="row" data-bit-control><label for="sliceOrigin">Slice origin</label><input id="sliceOrigin" type="number" min="0" max="23" value="0"></div>
@@ -440,7 +452,7 @@
       seed: $("seed"), applySeed: $("applySeed"), defaultProfile: $("defaultProfile"), randomStyle: $("randomStyle"), profileOut: $("profileOut"),
       useGeometryUniverses: $("useGeometryUniverses"), useUniverseColors: $("useUniverseColors"), universes: $("universes"), universeOneToggle: $("universeOneToggle"), sides: $("sides"), radiusAugment: $("radiusAugment"), corners: $("corners"), wrapMode: $("wrapMode"), neighborhoodOut: $("neighborhoodOut"),
       birthRule: $("birthRule"), survivalRule: $("survivalRule"), consensus: $("consensus"), newbornLineage: $("newbornLineage"),
-      useBitLayers: $("useBitLayers"), sliceMode: $("sliceMode"), sliceSchedule: $("sliceSchedule"), bitsPerSlice: $("bitsPerSlice"), sliceAdvance: $("sliceAdvance"), sliceOrigin: $("sliceOrigin"), activeSlices: $("activeSlices"), sliceInteraction: $("sliceInteraction"), sliceOut: $("sliceOut"),
+      useBitLayers: $("useBitLayers"), sliceMode: $("sliceMode"), sliceSchedule: $("sliceSchedule"), sliceLogic: $("sliceLogic"), sliceClock: $("sliceClock"), slicePeriods: $("slicePeriods"), slicePhases: $("slicePhases"), preserveInactiveSlices: $("preserveInactiveSlices"), bitsPerSlice: $("bitsPerSlice"), sliceAdvance: $("sliceAdvance"), sliceOrigin: $("sliceOrigin"), activeSlices: $("activeSlices"), sliceInteraction: $("sliceInteraction"), sliceOut: $("sliceOut"),
       sepR: $("sepR"), sepG: $("sepG"), sepB: $("sepB"), birthColorMode: $("birthColorMode"), survivalMutation: $("survivalMutation"), residueMode: $("residueMode"),
       hueOffset: $("hueOffset"), cpuBirths: $("cpuBirths"), colorByUniverse: $("colorByUniverse"), colorByItem: $("colorByItem"), colorByCell: $("colorByCell"), randomColors: $("randomColors"), desaturation: $("desaturation"),
       redBlue: $("redBlue"), redGreen: $("redGreen"), greenRed: $("greenRed"), greenBlue: $("greenBlue"), blueGreen: $("blueGreen"), blueRed: $("blueRed"),
@@ -495,6 +507,10 @@
     function parseRule(text, fallback) {
       const nums = String(text).split(/[^0-9]+/).filter(Boolean).map(Number).filter(n => Number.isInteger(n) && n >= 0);
       return new Set(nums.length ? nums : fallback);
+    }
+    function parseNumberList(text, fallback) {
+      const nums = String(text).split(/[^-0-9]+/).filter(Boolean).map(Number).filter(Number.isFinite);
+      return nums.length ? nums : fallback;
     }
     function rgb(r, g, b) { return (((r & 255) << 16) | ((g & 255) << 8) | (b & 255)) >>> 0; }
     function red(c) { return (c >>> 16) & 255; }
@@ -989,10 +1005,32 @@
       for (let bit = 0; bit < 24; bit++) if (mask & (1 << bit)) bits.push(bit);
       return bits;
     }
+    function applySliceClock(slices) {
+      const periods = parseNumberList(el.slicePeriods.value, [1, 2, 4]).map(v => Math.max(1, Math.abs(Math.round(v))));
+      const phases = parseNumberList(el.slicePhases.value, [0, 0, 0]).map(v => Math.round(v));
+      const clock = el.sliceClock.value;
+      for (const slice of slices) {
+        slice.period = periods[slice.index % periods.length] || 1;
+        slice.phase = phases[slice.index % phases.length] || 0;
+        if (clock === "one") slice.active = slices.length ? mod(generation, slices.length) === slice.index : true;
+        else if (clock === "periods") slice.active = mod(generation + slice.phase, slice.period) === 0;
+        else slice.active = true;
+      }
+      return slices;
+    }
+    function finishSliceInfo(slices, text, extra = {}) {
+      applySliceClock(slices);
+      const processedMask = slices.filter(slice => slice.active).reduce((mask, slice) => mask | slice.mask, 0) >>> 0;
+      const configuredMask = slices.reduce((mask, slice) => mask | slice.mask, 0) >>> 0;
+      const activeText = slices.map(slice => `${slice.active ? "*" : "."}${slice.label}:${slice.mask.toString(16).padStart(6, "0")}/p${slice.period}`).join(" ");
+      const laneText = `lanes ${universeCount() * slices.length}; active ${universeCount() * slices.filter(slice => slice.active).length}`;
+      el.sliceOut.textContent = `${text}; ${laneText}; ${activeText}`;
+      return { slices, processedMask, configuredMask, staticMode: slices.every(slice => slice.active), ...extra };
+    }
     function stateSlices(options = {}) {
       if (!bitDifferentiationEnabled()) {
         el.sliceOut.textContent = `bit-layer differentiation off; 1 full-color slice; effective universes ${universeCount()}`;
-        return { slices: [{ mask: FULL, index: 0, label: "full" }], processedMask: FULL, staticMode: true, origin: 0, advance: 0 };
+        return { slices: [{ mask: FULL, index: 0, label: "full", active: true, period: 1, phase: 0 }], processedMask: FULL, configuredMask: FULL, staticMode: true, origin: 0, advance: 0 };
       }
       if (el.sliceMode.value === "bits") {
         let width = intInput(el.bitsPerSlice, -24, 24, 2);
@@ -1007,15 +1045,22 @@
         }
         const origin = intInput(el.sliceOrigin, 0, 23, 0);
         const runtimeOrigin = options.useRuntimeOrigin ? sliceOriginCurrent : origin;
-        if (el.sliceSchedule.value === "moving") {
-          const mask = bitMaskFromPositions(runtimeOrigin, width);
-          const slices = [{ mask, index: 0, label: `b${runtimeOrigin}${width < 0 ? "-" : "+"}${Math.abs(width)}` }];
-          const bits = bitPositionsFromMask(mask).join(",");
-          const period = 24 / gcd(advance, 24);
-          el.sliceOut.textContent = `moving window; origin ${runtimeOrigin}; bits ${bits}; mask ${mask.toString(16).padStart(6, "0")}; lanes ${universeCount()}; period ${period}`;
-          return { slices, processedMask: mask, staticMode: false, origin: runtimeOrigin, advance };
-        }
         const count = intInput(el.activeSlices, 1, 24, 24);
+        if (el.sliceSchedule.value === "moving") {
+          const slices = [];
+          const seen = new Set();
+          for (let i = 0; i < count; i++) {
+            const start = mod(runtimeOrigin + i * advance, 24);
+            const mask = bitMaskFromPositions(start, width);
+            const key = mask.toString(16);
+            if (!seen.has(key)) {
+              seen.add(key);
+              slices.push({ mask, index: i, label: `b${start}${width < 0 ? "-" : "+"}${Math.abs(width)}` });
+            }
+          }
+          const period = 24 / gcd(advance, 24);
+          return finishSliceInfo(slices, `moving color-slice cycle; origin ${runtimeOrigin}; cycle ${period}`, { staticMode: false, origin: runtimeOrigin, advance });
+        }
         const slices = [];
         const seen = new Set();
         for (let i = 0; i < count; i++) {
@@ -1027,9 +1072,7 @@
             slices.push({ mask, index: i, label: `b${start}${width < 0 ? "-" : "+"}${Math.abs(width)}` });
           }
         }
-        const processedMask = slices.reduce((mask, slice) => mask | slice.mask, 0) >>> 0;
-        el.sliceOut.textContent = `${slices.length} static bit slices; lanes ${universeCount() * slices.length}; masks ${slices.map(s => s.mask.toString(16).padStart(6, "0")).join(" ")}`;
-        return { slices, processedMask, staticMode: true, origin, advance };
+        return finishSliceInfo(slices, `${slices.length} static bit slices`, { origin, advance });
       }
       if (el.sliceMode.value === "rgb") {
         const r = el.sepR.checked, g = el.sepG.checked, b = el.sepB.checked;
@@ -1041,11 +1084,10 @@
           else if (g) masksForGroups = [0x00FF00, 0xFF00FF];
           else masksForGroups = [0x0000FF, 0xFFFF00];
         } else masksForGroups = [FULL];
-        el.sliceOut.textContent = `${masksForGroups.length} RGB groups; effective universes ${universeCount() * masksForGroups.length}`;
-        return { slices: masksForGroups.map((mask, index) => ({ mask, index, label: `rgb${index}` })), processedMask: FULL, staticMode: true, origin: 0, advance: 0 };
+        return finishSliceInfo(masksForGroups.map((mask, index) => ({ mask, index, label: `rgb${index}` })), `${masksForGroups.length} RGB groups`, { origin: 0, advance: 0 });
       }
       el.sliceOut.textContent = `1 full-color slice; effective universes ${universeCount()}`;
-      return { slices: [{ mask: FULL, index: 0, label: "full" }], processedMask: FULL, staticMode: true, origin: 0, advance: 0 };
+      return { slices: [{ mask: FULL, index: 0, label: "full", active: true, period: 1, phase: 0 }], processedMask: FULL, configuredMask: FULL, staticMode: true, origin: 0, advance: 0 };
     }
     function bitReduce(values, op) {
       if (!values.length) return 0;
@@ -1186,6 +1228,16 @@
       }
       return { counts, nonzeroUniverses, parentMask: parentMaskByLiveNeighbor.mask, mateColors };
     }
+    function selectedNeighborhoodHasAny(i, x, y, considered, sliceMask) {
+      if (aliveBits[i] & sliceMask) return true;
+      for (const u of considered) {
+        for (const [dx, dy] of neighborhoods[u].offsets) {
+          const ni = idx(x + dx, y + dy);
+          if (ni >= 0 && (aliveBits[ni] & sliceMask)) return true;
+        }
+      }
+      return false;
+    }
     function lineageForBirth(oldMask, nonzeroUniverses, parentMask) {
       switch (el.newbornLineage.value) {
         case "all": return allMask();
@@ -1201,7 +1253,9 @@
       const sliceInfo = stateSlices({ useRuntimeOrigin: true });
       const slices = sliceInfo.slices;
       const processedMask = sliceInfo.processedMask & FULL;
-      const preserveInactive = el.sliceMode.value === "bits" && el.sliceSchedule.value === "moving";
+      const configuredMask = (sliceInfo.configuredMask == null ? processedMask : sliceInfo.configuredMask) & FULL;
+      const preserveInactive = el.preserveInactiveSlices.checked || (el.sliceMode.value === "bits" && el.sliceSchedule.value === "moving");
+      const perBitSliceLogic = bitDifferentiationEnabled() && el.sliceLogic.value === "bits" && el.sliceMode.value === "bits";
       lastSliceInfo = sliceInfo;
       if (preserveInactive || el.residueMode.value === "preserve") nextColors.set(colors);
       else if (el.residueMode.value === "fade") {
@@ -1238,15 +1292,58 @@
         const oldAlive = oldAliveBits !== 0;
         const oldMask = maskAt(i);
         const considered = activeUniverses(oldMask);
-        let newColor = preserveInactive ? (oldColor & ~processedMask) : 0;
-        let newAliveMask = preserveInactive ? (oldAliveBits & ~processedMask) : 0;
+        let newColor = preserveInactive ? (oldColor & ~processedMask) : (oldColor & ~configuredMask);
+        let newAliveMask = preserveInactive ? (oldAliveBits & ~processedMask) : (oldAliveBits & ~configuredMask);
         let born = false;
         let survived = false;
         let birthColor = null;
         let bornMask = 0;
 
         for (const slice of slices) {
+          if (!slice.active) continue;
           const groupMask = slice.mask & FULL;
+          if (perBitSliceLogic) {
+            if (!selectedNeighborhoodHasAny(i, x, y, considered, groupMask)) {
+              newColor = (newColor & ~groupMask) | (oldColor & groupMask);
+              newAliveMask = (newAliveMask & ~groupMask) | (oldAliveBits & groupMask);
+              continue;
+            }
+            let selectedColor = 0;
+            let selectedAliveMask = 0;
+            for (const bit of bitPositionsFromMask(groupMask)) {
+              const bitMask = (1 << bit) >>> 0;
+              const data = collectCandidateData(i, x, y, considered, bitMask);
+              const census = resolveConsensus(data.counts, birthRule, survivalRule);
+              const isBirth = census === "BIRTH" || birthRule.has(census);
+              const isSurvival = census === "SURVIVAL" || survivalRule.has(census);
+              const bitAlive = (oldAliveBits & bitMask) !== 0;
+              checksum = (checksum * 1.0001 + new Set(data.counts.filter(Boolean)).size + Number(bitAlive)) % Math.max(1, N);
+              if (!bitAlive && isBirth) {
+                if (birthColor == null || el.sliceInteraction.value === "strong") {
+                  birthColor = chooseBirthColor(data.mateColors);
+                  const cpu = clamp(numInput(el.cpuBirths, 15), -100, 100);
+                  if (universeColorDifferentiationEnabled() && cpu && data.nonzeroUniverses.length === 1) {
+                    birthColor = blendColors(birthColor, universalColor(data.nonzeroUniverses[0]), cpu / 100);
+                  }
+                }
+                selectedColor |= (birthColor & bitMask) || bitMask;
+                selectedAliveMask |= bitMask;
+                bornMask |= lineageForBirth(oldMask, data.nonzeroUniverses, data.parentMask);
+                born = true;
+                stats.births++;
+              } else if (bitAlive && isSurvival) {
+                selectedColor |= (oldColor & bitMask) || bitMask;
+                selectedAliveMask |= bitMask;
+                survived = true;
+                stats.survivals++;
+              } else if (bitAlive) {
+                stats.deaths++;
+              }
+            }
+            newColor = (newColor & ~groupMask) | selectedColor;
+            newAliveMask = (newAliveMask & ~groupMask) | selectedAliveMask;
+            continue;
+          }
           const data = collectCandidateData(i, x, y, considered, groupMask);
           const census = resolveConsensus(data.counts, birthRule, survivalRule);
           const isBirth = census === "BIRTH" || birthRule.has(census);
@@ -1292,7 +1389,7 @@
           nextColors[i] = newColor || birthColor || FULL;
           nextAliveBits[i] = newAliveMask || (nextColors[i] & FULL) || FULL;
           nextMasks[i] = bornMask || allMask();
-        } else if (preserveInactive && newAliveMask) {
+        } else if ((preserveInactive || perBitSliceLogic) && newAliveMask) {
           nextColors[i] = newColor;
           nextAliveBits[i] = newAliveMask;
           nextMasks[i] = oldMask;
@@ -2014,10 +2111,16 @@
       setElementContextDisabled(el.sliceMode, !bitOn);
       setElementContextDisabled(el.sliceInteraction, !bitOn || mode === "full");
       setElementContextDisabled(el.seedBits, !bitOn);
+      setElementContextDisabled(el.sliceLogic, !bitOn || mode !== "bits");
+      setElementContextDisabled(el.sliceClock, !bitOn || mode === "full");
+      const clockUsesPeriods = bitOn && mode !== "full" && el.sliceClock.value === "periods";
+      setElementContextDisabled(el.slicePeriods, !clockUsesPeriods);
+      setElementContextDisabled(el.slicePhases, !clockUsesPeriods);
+      setElementContextDisabled(el.preserveInactiveSlices, !bitOn || mode === "full" || el.sliceClock.value === "all");
       for (const id of ["sliceSchedule", "bitsPerSlice", "sliceAdvance", "sliceOrigin"]) {
         setElementContextDisabled(el[id], !bitOn || mode !== "bits");
       }
-      setElementContextDisabled(el.activeSlices, !bitOn || mode !== "bits" || el.sliceSchedule.value === "moving");
+      setElementContextDisabled(el.activeSlices, !bitOn || mode !== "bits");
       for (const id of ["sepR", "sepG", "sepB"]) {
         setElementContextDisabled(el[id], !bitOn || mode !== "rgb");
       }
@@ -2064,6 +2167,11 @@
       el.useBitLayers.checked = true;
       el.sliceMode.value = "full";
       el.sliceSchedule.value = "static";
+      el.sliceLogic.value = "group";
+      el.sliceClock.value = "all";
+      el.slicePeriods.value = "1,2,4";
+      el.slicePhases.value = "0,0,0";
+      el.preserveInactiveSlices.checked = true;
       el.bitsPerSlice.value = 2;
       el.sliceAdvance.value = 1;
       el.sliceOrigin.value = 0;
@@ -2102,6 +2210,9 @@
       } else if (style === "wild") {
         el.sliceMode.value = choice(["full", "rgb", "bits", "bits"]);
         el.sliceSchedule.value = el.sliceMode.value === "bits" ? choice(["static", "moving", "moving"]) : "static";
+        el.sliceLogic.value = choice(["group", "bits"]);
+        el.sliceClock.value = choice(["all", "one", "periods"]);
+        el.slicePeriods.value = choice(["1,2,4", "1,1,2,3", "1,3,5", "2,3"]);
         el.bitsPerSlice.value = choice([-8, -3, -2, -1, 1, 2, 3, 8, 23]);
         el.sliceAdvance.value = choice([-5, -3, -1, 1, 2, 3, 5]);
         el.activeSlices.value = randInt(1, 24);
@@ -2118,6 +2229,9 @@
       } else {
         el.sliceMode.value = rng() < .72 ? "full" : choice(["rgb", "bits"]);
         el.sliceSchedule.value = el.sliceMode.value === "bits" ? choice(["static", "moving", "moving"]) : "static";
+        el.sliceLogic.value = choice(["group", "bits"]);
+        el.sliceClock.value = choice(["all", "all", "one", "periods"]);
+        el.slicePeriods.value = choice(["1,2,4", "1,1,2", "2,3"]);
         el.bitsPerSlice.value = choice([1, 2, 2, 8, 23]);
         el.sliceAdvance.value = choice([1, 1, 1, -1, -3]);
         el.activeSlices.value = el.sliceMode.value === "bits" ? choice([3, 8, 12, 24]) : 24;
@@ -2184,8 +2298,12 @@
         const [count, advance] = button.dataset.bitPreset.split(",");
         el.sliceMode.value = "bits";
         el.sliceSchedule.value = "moving";
+        el.sliceLogic.value = "bits";
+        el.sliceClock.value = "all";
         el.bitsPerSlice.value = count;
         el.sliceAdvance.value = advance;
+        el.activeSlices.value = 1;
+        el.preserveInactiveSlices.checked = true;
         sliceOriginCurrent = intInput(el.sliceOrigin, 0, 23, 0);
         render();
       });
