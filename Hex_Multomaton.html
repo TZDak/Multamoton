@@ -561,8 +561,9 @@
 
     function resizeWorld() {
       const radius = intInput(el.gridRadius, 20, 1000, 200);
-      W = radius * 2 + 1;
-      H = radius * 2 + 1;
+      const side = radius * 2 + 1;
+      W = internalGrid() === "rhombus" ? side * 3 : side;
+      H = side;
       N = W * H;
       colors = new Uint32Array(N);
       aliveBits = new Uint32Array(N);
@@ -589,13 +590,19 @@
     function hexFrameEnabled() {
       return internalGrid() !== "square";
     }
-    function centeredAxial(x, y) {
-      const radius = (W - 1) / 2;
-      return [x - radius, y - radius];
+    function frameRadius() {
+      return (H - 1) / 2;
     }
-    function uncenteredAxial(q, r) {
-      const radius = (W - 1) / 2;
-      return [Math.round(q + radius), Math.round(r + radius)];
+    function centeredAxial(x, y) {
+      const radius = frameRadius();
+      if (internalGrid() === "rhombus") return [Math.floor(x / 3) - radius, y - radius, mod(x, 3)];
+      return [x - radius, y - radius, 0];
+    }
+    function uncenteredAxial(q, r, type = 0) {
+      const radius = frameRadius();
+      const y = Math.round(r + radius);
+      if (internalGrid() === "rhombus") return [Math.round(q + radius) * 3 + mod(type, 3), y];
+      return [Math.round(q + radius), y];
     }
     function axialHexNorm(q, r) {
       return Math.max(Math.abs(q), Math.abs(r), Math.abs(-q - r));
@@ -604,12 +611,12 @@
       if (x < 0 || y < 0 || x >= W || y >= H) return false;
       if (!hexFrameEnabled()) return true;
       const [q, r] = centeredAxial(x, y);
-      return axialHexNorm(q, r) <= (W - 1) / 2;
+      return axialHexNorm(q, r) <= frameRadius();
     }
     function hexWrapXY(x, y) {
-      const radius = (W - 1) / 2;
-      let [q, r] = centeredAxial(x, y);
-      if (axialHexNorm(q, r) <= radius) return uncenteredAxial(q, r);
+      const radius = frameRadius();
+      let [q, r, type] = centeredAxial(x, y);
+      if (axialHexNorm(q, r) <= radius) return uncenteredAxial(q, r, type);
       const translations = [
         [2 * radius + 1, -radius],
         [2 * radius + 1, -radius - 1],
@@ -638,7 +645,7 @@
         [q, r] = best;
       }
       if (axialHexNorm(q, r) > radius) return null;
-      return uncenteredAxial(q, r);
+      return uncenteredAxial(q, r, type);
     }
     function wrappedXY(x, y) {
       const inX = 0 <= x && x < W;
@@ -730,10 +737,16 @@
     }
     function echoTileDelta(tx, ty) {
       if (!hexFrameEnabled()) return axialToSceneDelta(tx * W, ty * H);
-      const radius = (W - 1) / 2;
+      const radius = frameRadius();
       const a = [2 * radius + 1, -radius];
       const b = [radius, -2 * radius - 1];
-      return axialToSceneDelta(tx * a[0] + ty * b[0], tx * a[1] + ty * b[1]);
+      const q = tx * a[0] + ty * b[0];
+      const r = tx * a[1] + ty * b[1];
+      if (internalGrid() === "rhombus") {
+        const p = rhombilleHexCenter(q, r);
+        return [p[0] * HEX_RENDER_SCALE, p[1] * HEX_RENDER_SCALE];
+      }
+      return axialToSceneDelta(q, r);
     }
     function latticeDeltaToPlane(q, r) {
       const p = axialToPlane(q, r);

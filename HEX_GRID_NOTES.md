@@ -86,6 +86,11 @@ hexagonal frame inside that backing array. Echo wrap crosses opposite hex edges,
 and `Echo scene copies` uses matching translated copies rather than mirrored
 reflections. Square mode still uses the full square backing frame.
 
+Rhombic mode stores three x-addresses for each composite hex column. Edge wrap
+operates on the composite hex coordinate while preserving `x mod 3`, so a top,
+lower-left, or lower-right rhombus remains the same subtype after crossing an
+opposite edge.
+
 Universe count, rotated geometry, and universe color influence are separate
 controls:
 
