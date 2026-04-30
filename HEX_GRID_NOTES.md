@@ -81,6 +81,11 @@ range of `(2R + 1) x (2R + 1)` axial addresses. This is still an implementation
 compromise rather than a true finite hexagonal disk, but it presents the size in
 terms of radius instead of square-grid width and height.
 
+For non-square internal grids, the active world is now treated as a centered
+hexagonal frame inside that backing array. Echo wrap crosses opposite hex edges,
+and `Echo scene copies` uses matching translated copies rather than mirrored
+reflections. Square mode still uses the full square backing frame.
+
 Universe count, rotated geometry, and universe color influence are separate
 controls:
 
