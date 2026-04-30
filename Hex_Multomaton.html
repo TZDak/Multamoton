@@ -790,7 +790,15 @@
       return out;
     }
     function computeHexLayout() {
-      const samples = layoutSampleCells().map(([x, y]) => axialToSceneDelta(x, y));
+      const baseSamples = layoutSampleCells().map(([x, y]) => axialToSceneDelta(x, y));
+      const tiles = el.mirrorBorders.checked
+        ? [-1, 0, 1].flatMap(tx => [-1, 0, 1].map(ty => [tx, ty]))
+        : [[0, 0]];
+      const samples = [];
+      for (const [tx, ty] of tiles) {
+        const [shiftX, shiftY] = echoTileDelta(tx, ty);
+        for (const [x, y] of baseSamples) samples.push([x + shiftX, y + shiftY]);
+      }
       const xs = samples.map(p => p[0]);
       const ys = samples.map(p => p[1]);
       const minX = Math.min(...xs), maxX = Math.max(...xs);
