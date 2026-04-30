@@ -1577,20 +1577,23 @@
       }
       target.closePath();
     }
-    function traceGridCell(target, q, r) {
+    function translatedPlanePoints(points, tx, ty) {
+      const [dx, dy] = axialToPlane(tx * W, ty * H);
+      return points.map(([x, y]) => [x + dx, y + dy]);
+    }
+    function gridCellPolygon(q, r) {
       const grid = internalGrid();
       const [cx, cy] = axialToPlane(q, r);
       if (grid === "square") {
-        tracePlanePolygon(target, [[cx - .5, cy - .5], [cx + .5, cy - .5], [cx + .5, cy + .5], [cx - .5, cy + .5]]);
+        return [[cx - .5, cy - .5], [cx + .5, cy - .5], [cx + .5, cy + .5], [cx - .5, cy + .5]];
       } else if (grid === "triangle") {
         const h = Math.sqrt(3) * .5;
         const up = mod(q + r, 2) === 0;
-        const points = up
+        return up
           ? [[cx - .5, cy - h / 3], [cx + .5, cy - h / 3], [cx, cy + h * 2 / 3]]
           : [[cx - .5, cy + h / 3], [cx + .5, cy + h / 3], [cx, cy - h * 2 / 3]];
-        tracePlanePolygon(target, points);
       } else if (grid === "rhombus") {
-        tracePlanePolygon(target, rhombilleVerticesForAddress(q, r));
+        return rhombilleVerticesForAddress(q, r);
       } else {
         const radius = 1 / Math.sqrt(3);
         const points = [];
@@ -1598,8 +1601,11 @@
           const a = Math.PI / 6 + i * TAU / 6;
           points.push([cx + Math.cos(a) * radius, cy + Math.sin(a) * radius]);
         }
-        tracePlanePolygon(target, points);
+        return points;
       }
+    }
+    function traceGridCell(target, q, r, tx = 0, ty = 0) {
+      tracePlanePolygon(target, translatedPlanePoints(gridCellPolygon(q, r), tx, ty));
     }
     function scenePointToCanvas(sx, sy, scene, scale, angle) {
       const x = (sx - scene.sceneW / 2) * scale;
@@ -1607,9 +1613,10 @@
       const ca = Math.cos(angle), sa = Math.sin(angle);
       return [canvas.width / 2 + x * ca - y * sa, canvas.height / 2 + x * sa + y * ca];
     }
-    function gridCellProbablyOnCanvas(q, r, scene, scale, angle) {
-      const [sx, sy] = cellScenePoint(q, r);
-      const [cx, cy] = scenePointToCanvas(sx, sy, scene, scale, angle);
+    function gridSampleProbablyOnCanvas(sample, scene, scale, angle) {
+      const [baseX, baseY] = cellScenePoint(sample.x, sample.y);
+      const [shiftX, shiftY] = axialToSceneDelta(sample.tx * W, sample.ty * H);
+      const [cx, cy] = scenePointToCanvas(baseX + shiftX, baseY + shiftY, scene, scale, angle);
       const margin = Math.max(4, HEX_RENDER_SCALE * scale * 1.75);
       return cx >= -margin && cy >= -margin && cx <= canvas.width + margin && cy <= canvas.height + margin;
     }
@@ -1622,11 +1629,11 @@
         return Math.sqrt(-2 * Math.log(u)) * Math.cos(TAU * v);
       };
       const centered = (size) => clamp(Math.round((size - 1) / 2 + gaussian() * size / 5.5), 0, size - 1);
-      return { q: centered(W) + tx * W, r: centered(H) + ty * H };
+      return { x: centered(W), y: centered(H), tx, ty };
     }
     function drawGridOverlay(scene, scale, angle) {
       if (!el.showGrid.checked) return false;
-      const key = `${W},${H},${internalGrid()},${el.mirrorBorders.checked}`;
+      const key = `v2:${W},${H},${internalGrid()},${el.mirrorBorders.checked}`;
       if (gridOverlayKey !== key) {
         gridOverlaySamples = [];
         gridOverlayKey = key;
@@ -1658,15 +1665,15 @@
           gridOverlaySamples = gridOverlaySamples.concat(retained.slice(i));
           break;
         }
-        if (gridCellProbablyOnCanvas(sample.q, sample.r, scene, scale, angle)) {
-          traceGridCell(gridCtx, sample.q, sample.r);
+        if (gridSampleProbablyOnCanvas(sample, scene, scale, angle)) {
+          traceGridCell(gridCtx, sample.x, sample.y, sample.tx, sample.ty);
           gridOverlaySamples.push(sample);
         }
       }
       while (performance.now() < deadline) {
         const sample = randomGridOverlaySample(tiles);
-        if (!gridCellProbablyOnCanvas(sample.q, sample.r, scene, scale, angle)) continue;
-        traceGridCell(gridCtx, sample.q, sample.r);
+        if (!gridSampleProbablyOnCanvas(sample, scene, scale, angle)) continue;
+        traceGridCell(gridCtx, sample.x, sample.y, sample.tx, sample.ty);
         gridOverlaySamples.push(sample);
       }
       gridCtx.stroke();
