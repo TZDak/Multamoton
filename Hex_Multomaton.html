@@ -1696,7 +1696,17 @@
           }
         }
       }
-      return { canvas: sceneCanvas, sceneW, sceneH, borderX, borderY };
+      return {
+        canvas: sceneCanvas,
+        sceneW,
+        sceneH,
+        borderX,
+        borderY,
+        focusX: layout.focusX,
+        focusY: layout.focusY,
+        focusW: layout.focusW,
+        focusH: layout.focusH
+      };
     }
     function scenePointFromPlane(px, py) {
       return [px * HEX_RENDER_SCALE - hexLayout.minX + hexLayout.borderX, py * HEX_RENDER_SCALE - hexLayout.minY + hexLayout.borderY];
@@ -1833,9 +1843,11 @@
     function sceneBoundsAtAngle(scene, angle) {
       const ca = Math.abs(Math.cos(angle));
       const sa = Math.abs(Math.sin(angle));
+      const focusW = scene.focusW || scene.sceneW;
+      const focusH = scene.focusH || scene.sceneH;
       return {
-        w: scene.focusW * ca + scene.focusH * sa,
-        h: scene.focusW * sa + scene.focusH * ca
+        w: focusW * ca + focusH * sa,
+        h: focusW * sa + focusH * ca
       };
     }
     function sceneScaleForZoom(scene) {
