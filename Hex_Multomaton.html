@@ -312,6 +312,7 @@
         <div class="row" data-bit-control><label for="sliceAdvance">Slice advance</label><input id="sliceAdvance" type="number" min="-24" max="24" value="1"></div>
         <div class="row" data-bit-control><label for="sliceOrigin">Slice origin</label><input id="sliceOrigin" type="number" min="0" max="23" value="0"></div>
         <div class="row" data-bit-control><label for="activeSlices">Active slices</label><input id="activeSlices" type="number" min="1" max="24" value="24"></div>
+        <label class="check" data-bit-control><input id="sliceWrap" type="checkbox" checked> Slice-wrap</label>
         <div class="row" data-bit-control><label for="sliceInteraction">Slice interaction</label><select id="sliceInteraction">
           <option value="weak" selected>weak consensus</option>
           <option value="isolated">isolated slices</option>
@@ -461,7 +462,7 @@
       seed: $("seed"), applySeed: $("applySeed"), defaultProfile: $("defaultProfile"), randomStyle: $("randomStyle"), profileOut: $("profileOut"),
       useGeometryUniverses: $("useGeometryUniverses"), useUniverseColors: $("useUniverseColors"), universes: $("universes"), universeOneToggle: $("universeOneToggle"), sides: $("sides"), radiusAugment: $("radiusAugment"), corners: $("corners"), wrapMode: $("wrapMode"), neighborhoodOut: $("neighborhoodOut"),
       birthRule: $("birthRule"), survivalRule: $("survivalRule"), consensus: $("consensus"), newbornLineage: $("newbornLineage"),
-      useBitLayers: $("useBitLayers"), sliceMode: $("sliceMode"), sliceSchedule: $("sliceSchedule"), sliceLogic: $("sliceLogic"), sliceClock: $("sliceClock"), slicePeriods: $("slicePeriods"), slicePhases: $("slicePhases"), preserveInactiveSlices: $("preserveInactiveSlices"), bitsPerSlice: $("bitsPerSlice"), sliceAdvance: $("sliceAdvance"), sliceOrigin: $("sliceOrigin"), activeSlices: $("activeSlices"), sliceInteraction: $("sliceInteraction"), sliceOut: $("sliceOut"), slicePreset: $("slicePreset"), applySlicePreset: $("applySlicePreset"),
+      useBitLayers: $("useBitLayers"), sliceMode: $("sliceMode"), sliceSchedule: $("sliceSchedule"), sliceLogic: $("sliceLogic"), sliceClock: $("sliceClock"), slicePeriods: $("slicePeriods"), slicePhases: $("slicePhases"), preserveInactiveSlices: $("preserveInactiveSlices"), bitsPerSlice: $("bitsPerSlice"), sliceAdvance: $("sliceAdvance"), sliceOrigin: $("sliceOrigin"), activeSlices: $("activeSlices"), sliceWrap: $("sliceWrap"), sliceInteraction: $("sliceInteraction"), sliceOut: $("sliceOut"), slicePreset: $("slicePreset"), applySlicePreset: $("applySlicePreset"),
       sepR: $("sepR"), sepG: $("sepG"), sepB: $("sepB"), birthColorMode: $("birthColorMode"), survivalMutation: $("survivalMutation"), residueMode: $("residueMode"),
       hueOffset: $("hueOffset"), cpuBirths: $("cpuBirths"), colorByUniverse: $("colorByUniverse"), colorByItem: $("colorByItem"), colorByCell: $("colorByCell"), randomColors: $("randomColors"), desaturation: $("desaturation"), uniformThingColors: $("uniformThingColors"),
       redBlue: $("redBlue"), redGreen: $("redGreen"), greenRed: $("greenRed"), greenBlue: $("greenBlue"), blueGreen: $("blueGreen"), blueRed: $("blueRed"),
@@ -1005,7 +1006,9 @@
       const direction = width < 0 ? -1 : 1;
       const count = Math.max(1, Math.min(24, Math.abs(width || 1)));
       for (let i = 0; i < count; i++) {
-        const bit = mod(start + i * direction, 24);
+        const rawBit = start + i * direction;
+        if (!el.sliceWrap.checked && (rawBit < 0 || rawBit >= 24)) continue;
+        const bit = mod(rawBit, 24);
         mask |= (1 << bit) >>> 0;
       }
       return mask >>> 0;
@@ -2216,7 +2219,7 @@
     }
     const multiSpeedSettingIds = [
       "useBitLayers", "sliceMode", "sliceSchedule", "sliceLogic", "sliceClock", "slicePeriods", "slicePhases",
-      "preserveInactiveSlices", "bitsPerSlice", "sliceAdvance", "sliceOrigin", "activeSlices", "sliceInteraction",
+      "preserveInactiveSlices", "bitsPerSlice", "sliceAdvance", "sliceOrigin", "activeSlices", "sliceWrap", "sliceInteraction",
       "sepR", "sepG", "sepB", "seedBits", "survivalMutation", "residueMode",
       "redBlue", "redGreen", "greenRed", "greenBlue", "blueGreen", "blueRed"
     ];
@@ -2243,6 +2246,7 @@
       el.slicePhases.value = "0,0,0";
       el.preserveInactiveSlices.checked = true;
       el.sliceOrigin.value = 0;
+      el.sliceWrap.checked = true;
       el.seedBits.value = "color";
       el.survivalMutation.checked = false;
       el.residueMode.value = "clear";
@@ -2338,9 +2342,10 @@
       el.slicePhases.value = "0,0,0";
       el.preserveInactiveSlices.checked = true;
       el.bitsPerSlice.value = 14;
-      el.sliceAdvance.value = 8;
+      el.sliceAdvance.value = 3;
       el.sliceOrigin.value = 0;
-      el.activeSlices.value = 24;
+      el.activeSlices.value = 1;
+      el.sliceWrap.checked = true;
       el.sliceInteraction.value = "weak";
       el.seedBits.value = "color";
       el.hueOffset.value = -70;
