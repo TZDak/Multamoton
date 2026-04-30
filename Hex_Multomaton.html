@@ -238,7 +238,7 @@
           <option value="square">square lattice</option>
           <option value="rhombus">rhombic lattice</option>
         </select></div>
-        <div class="row"><label for="gridRadius">Grid radius</label><input id="gridRadius" type="number" min="20" max="1000" value="200"></div>
+        <div class="row"><label for="gridRadius">Grid radius</label><input id="gridRadius" type="number" min="20" max="1000" value="77"></div>
         <div class="readout" id="profileOut"></div>
       </section>
 
@@ -375,7 +375,7 @@
 
       <section>
         <h2>Seeds</h2>
-        <div class="row"><label for="startThings">Start things</label><input id="startThings" type="number" min="1" max="160" value="12"></div>
+        <div class="row"><label for="startThings">Start things</label><input id="startThings" type="number" min="1" max="160" value="9"></div>
         <div class="row"><label for="randomPlacement">Random placement %</label><input id="randomPlacement" type="number" min="0" max="100" value="0"></div>
         <div class="row"><label for="itemRotation">Initial item rotation</label><input id="itemRotation" type="number" min="-360" max="360" value="90"></div>
         <div class="row" data-bit-control><label for="seedBits">Seed live bits</label><select id="seedBits">
@@ -396,7 +396,7 @@
         </div>
         <div class="grid2">
           <label class="check"><input id="uBlinker" type="checkbox"> Blinker</label>
-          <label class="check"><input id="uGlider0" type="checkbox"> Glider A</label>
+          <label class="check"><input id="uGlider0" type="checkbox" checked> Glider A</label>
           <label class="check"><input id="uGlider1" type="checkbox" checked> Glider B</label>
           <label class="check"><input id="uAcorn" type="checkbox"> Acorn</label>
           <label class="check"><input id="uTen" type="checkbox"> Ten-cell</label>
@@ -2323,8 +2323,8 @@
       el.useGeometryUniverses.checked = true;
       el.useUniverseColors.checked = true;
       el.sides.value = 4;
-      el.gridRadius.value = 200;
-      el.startThings.value = 12;
+      el.gridRadius.value = 77;
+      el.startThings.value = 9;
       el.radiusAugment.value = 1;
       el.corners.checked = true;
       el.wrapMode.value = "python";
@@ -2365,7 +2365,8 @@
       el.haloOpacity.value = 100;
       el.ghostOpacity.value = 50;
       el.oversize.value = 100;
-      for (const id of ["uBlinker", "uGlider0", "uAcorn", "uTen", "uOPent", "uQPent", "uTPent", "uXPent"]) el[id].checked = false;
+      for (const id of ["uBlinker", "uAcorn", "uTen", "uOPent", "uQPent", "uTPent", "uXPent"]) el[id].checked = false;
+      el.uGlider0.checked = true;
       el.uGlider1.checked = true;
       el.uRPent.checked = true;
       for (const id of ["redBlue", "redGreen", "greenRed", "greenBlue", "blueGreen", "blueRed"]) el[id].checked = false;
@@ -2559,7 +2560,7 @@
       const delta = lastRenderTime ? time - lastRenderTime : 16.7;
       lastRenderTime = time;
       if (el.wobble.checked) {
-        sineAngle -= Math.PI * numInput(el.tiltSpeed, 13) * delta / 160000;
+        sineAngle -= Math.PI * numInput(el.tiltSpeed, 13) * 0.03 * delta / 160000;
       }
       const ms = 1000 / Number(el.speed.value);
       if (running && time - lastStepTime >= ms) {
