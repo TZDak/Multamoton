@@ -319,6 +319,7 @@
         <label class="check" data-bit-control><input id="sepR" type="checkbox"> RGB mode: red separately</label>
         <label class="check" data-bit-control><input id="sepG" type="checkbox"> RGB mode: green separately</label>
         <label class="check" data-bit-control><input id="sepB" type="checkbox"> RGB mode: blue separately</label>
+        <button id="multiSpeedToggle" data-bit-control>Multi-speed setup</button>
         <div class="grid2" data-bit-control>
           <button data-bit-preset="2,1">2 bits / advance 1</button>
           <button data-bit-preset="23,1">23 bits / advance 1</button>
@@ -452,7 +453,7 @@
       seed: $("seed"), applySeed: $("applySeed"), defaultProfile: $("defaultProfile"), randomStyle: $("randomStyle"), profileOut: $("profileOut"),
       useGeometryUniverses: $("useGeometryUniverses"), useUniverseColors: $("useUniverseColors"), universes: $("universes"), universeOneToggle: $("universeOneToggle"), sides: $("sides"), radiusAugment: $("radiusAugment"), corners: $("corners"), wrapMode: $("wrapMode"), neighborhoodOut: $("neighborhoodOut"),
       birthRule: $("birthRule"), survivalRule: $("survivalRule"), consensus: $("consensus"), newbornLineage: $("newbornLineage"),
-      useBitLayers: $("useBitLayers"), sliceMode: $("sliceMode"), sliceSchedule: $("sliceSchedule"), sliceLogic: $("sliceLogic"), sliceClock: $("sliceClock"), slicePeriods: $("slicePeriods"), slicePhases: $("slicePhases"), preserveInactiveSlices: $("preserveInactiveSlices"), bitsPerSlice: $("bitsPerSlice"), sliceAdvance: $("sliceAdvance"), sliceOrigin: $("sliceOrigin"), activeSlices: $("activeSlices"), sliceInteraction: $("sliceInteraction"), sliceOut: $("sliceOut"),
+      useBitLayers: $("useBitLayers"), sliceMode: $("sliceMode"), sliceSchedule: $("sliceSchedule"), sliceLogic: $("sliceLogic"), sliceClock: $("sliceClock"), slicePeriods: $("slicePeriods"), slicePhases: $("slicePhases"), preserveInactiveSlices: $("preserveInactiveSlices"), bitsPerSlice: $("bitsPerSlice"), sliceAdvance: $("sliceAdvance"), sliceOrigin: $("sliceOrigin"), activeSlices: $("activeSlices"), sliceInteraction: $("sliceInteraction"), sliceOut: $("sliceOut"), multiSpeedToggle: $("multiSpeedToggle"),
       sepR: $("sepR"), sepG: $("sepG"), sepB: $("sepB"), birthColorMode: $("birthColorMode"), survivalMutation: $("survivalMutation"), residueMode: $("residueMode"),
       hueOffset: $("hueOffset"), cpuBirths: $("cpuBirths"), colorByUniverse: $("colorByUniverse"), colorByItem: $("colorByItem"), colorByCell: $("colorByCell"), randomColors: $("randomColors"), desaturation: $("desaturation"),
       redBlue: $("redBlue"), redGreen: $("redGreen"), greenRed: $("greenRed"), greenBlue: $("greenBlue"), blueGreen: $("blueGreen"), blueRed: $("blueRed"),
@@ -473,6 +474,7 @@
     const hexVectorCache = new Map();
     const hexBasisCache = new Map();
     let savedUniverseCount = 3;
+    let savedMultiSpeedSettings = null;
     let neighborhoods = [], allOffsets = [], haloOffsets = [], radiusUsed = 1;
     let running = true, generation = 0, lastStepTime = 0, lastRenderTime = 0, sineAngle = 0;
     let sliceOriginCurrent = 0;
@@ -1077,14 +1079,18 @@
       if (el.sliceMode.value === "rgb") {
         const r = el.sepR.checked, g = el.sepG.checked, b = el.sepB.checked;
         const separate = Number(r) + Number(g) + Number(b);
-        let masksForGroups;
-        if (separate > 1) masksForGroups = [0xFF0000, 0x00FF00, 0x0000FF];
+        let groups;
+        if (separate > 1) groups = [
+          { mask: 0xFF0000, label: "red" },
+          { mask: 0x00FF00, label: "green" },
+          { mask: 0x0000FF, label: "blue" }
+        ];
         else if (separate === 1) {
-          if (r) masksForGroups = [0xFF0000, 0x00FFFF];
-          else if (g) masksForGroups = [0x00FF00, 0xFF00FF];
-          else masksForGroups = [0x0000FF, 0xFFFF00];
-        } else masksForGroups = [FULL];
-        return finishSliceInfo(masksForGroups.map((mask, index) => ({ mask, index, label: `rgb${index}` })), `${masksForGroups.length} RGB groups`, { origin: 0, advance: 0 });
+          if (r) groups = [{ mask: 0xFF0000, label: "red" }, { mask: 0x00FFFF, label: "cyan" }];
+          else if (g) groups = [{ mask: 0x00FF00, label: "green" }, { mask: 0xFF00FF, label: "magenta" }];
+          else groups = [{ mask: 0x0000FF, label: "blue" }, { mask: 0xFFFF00, label: "yellow" }];
+        } else groups = [{ mask: FULL, label: "full" }];
+        return finishSliceInfo(groups.map((group, index) => ({ ...group, index })), `${groups.length} RGB groups`, { origin: 0, advance: 0 });
       }
       el.sliceOut.textContent = `1 full-color slice; effective universes ${universeCount()}`;
       return { slices: [{ mask: FULL, index: 0, label: "full", active: true, period: 1, phase: 0 }], processedMask: FULL, configuredMask: FULL, staticMode: true, origin: 0, advance: 0 };
@@ -2121,6 +2127,7 @@
         setElementContextDisabled(el[id], !bitOn || mode !== "bits");
       }
       setElementContextDisabled(el.activeSlices, !bitOn || mode !== "bits");
+      setElementContextDisabled(el.multiSpeedToggle, !bitOn);
       for (const id of ["sepR", "sepG", "sepB"]) {
         setElementContextDisabled(el[id], !bitOn || mode !== "rgb");
       }
@@ -2128,6 +2135,7 @@
         button.disabled = !bitOn;
         button.closest?.("[data-bit-control]")?.classList.toggle("is-disabled-context", !bitOn);
       });
+      el.multiSpeedToggle.textContent = savedMultiSpeedSettings ? "Restore previous slice setup" : "Multi-speed setup";
     }
     function setSettingsOpen(open) {
       document.body.classList.toggle("settings-open", open);
@@ -2143,6 +2151,62 @@
       for (let i = 0; i < n; i++) stepWorld();
       running = wasRunning && n === 0;
       updateHud();
+    }
+    const multiSpeedSettingIds = [
+      "useBitLayers", "sliceMode", "sliceSchedule", "sliceLogic", "sliceClock", "slicePeriods", "slicePhases",
+      "preserveInactiveSlices", "bitsPerSlice", "sliceAdvance", "sliceOrigin", "activeSlices", "sliceInteraction",
+      "sepR", "sepG", "sepB", "seedBits", "survivalMutation", "residueMode",
+      "redBlue", "redGreen", "greenRed", "greenBlue", "blueGreen", "blueRed"
+    ];
+    function captureControlValues(ids) {
+      const values = {};
+      for (const id of ids) {
+        const node = el[id];
+        if (!node) continue;
+        values[id] = node.type === "checkbox" ? node.checked : node.value;
+      }
+      return values;
+    }
+    function restoreControlValues(values) {
+      for (const [id, value] of Object.entries(values || {})) {
+        const node = el[id];
+        if (!node) continue;
+        if (node.type === "checkbox") node.checked = Boolean(value);
+        else node.value = value;
+      }
+    }
+    function applyMultiSpeedSetup() {
+      if (savedMultiSpeedSettings) {
+        restoreControlValues(savedMultiSpeedSettings);
+        savedMultiSpeedSettings = null;
+        el.profileOut.textContent = "Previous slice setup restored.";
+      } else {
+        savedMultiSpeedSettings = captureControlValues(multiSpeedSettingIds);
+        el.useBitLayers.checked = true;
+        el.sliceMode.value = "rgb";
+        el.sliceSchedule.value = "static";
+        el.sliceLogic.value = "group";
+        el.sliceClock.value = "periods";
+        el.slicePeriods.value = "4,2,1";
+        el.slicePhases.value = "0,0,0";
+        el.preserveInactiveSlices.checked = true;
+        el.bitsPerSlice.value = -8;
+        el.sliceAdvance.value = -3;
+        el.sliceOrigin.value = 0;
+        el.activeSlices.value = 3;
+        el.sliceInteraction.value = "isolated";
+        el.sepR.checked = true;
+        el.sepG.checked = true;
+        el.sepB.checked = true;
+        el.seedBits.value = "color";
+        el.survivalMutation.checked = false;
+        el.residueMode.value = "clear";
+        for (const id of ["redBlue", "redGreen", "greenRed", "greenBlue", "blueGreen", "blueRed"]) el[id].checked = false;
+        el.profileOut.textContent = "Multi-speed slice setup applied. Reseed with visible color bits for the cleanest test.";
+      }
+      sliceOriginCurrent = intInput(el.sliceOrigin, 0, 23, 0);
+      calculateNeighborhoods();
+      render();
     }
 
     function resetDefaults() {
@@ -2199,6 +2263,7 @@
       el.uRPent.checked = true;
       for (const id of ["redBlue", "redGreen", "greenRed", "greenBlue", "blueGreen", "blueRed"]) el[id].checked = false;
       el.profileOut.textContent = "Default profile restored.";
+      savedMultiSpeedSettings = null;
     }
     function randomizeSettings() {
       const style = el.randomStyle.value;
@@ -2282,6 +2347,7 @@
     el.clearWorld.addEventListener("click", clearWorld);
     el.applySeed.addEventListener("click", applySeed);
     el.defaultProfile.addEventListener("click", () => { resetDefaults(); resizeWorld(); seedWorld(); });
+    el.multiSpeedToggle.addEventListener("click", applyMultiSpeedSetup);
     el.universeOneToggle.addEventListener("click", () => {
       const current = intInput(el.universes, 1, 31, 3);
       if (current === 1) {
