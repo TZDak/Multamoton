@@ -1050,10 +1050,10 @@
         const runtimeOrigin = options.useRuntimeOrigin ? sliceOriginCurrent : origin;
         const count = intInput(el.activeSlices, 1, 24, 24);
         if (el.sliceSchedule.value === "async") {
-          const bit = mod(runtimeOrigin, 24);
-          const mask = (1 << bit) >>> 0;
-          const slices = [{ mask, index: 0, label: `bit${bit}`, active: true, period: 1, phase: 0 }];
-          return finishSliceInfo(slices, `async bit-plane cycle; bit ${bit}; cycle 24`, { staticMode: false, origin: runtimeOrigin, advance: 1 });
+          const mask = bitMaskFromPositions(runtimeOrigin, width);
+          const bits = bitPositionsFromMask(mask).join(",");
+          const slices = [{ mask, index: 0, label: `b${runtimeOrigin}${width < 0 ? "-" : "+"}${Math.abs(width)}`, active: true, period: 1, phase: 0 }];
+          return finishSliceInfo(slices, `async slice-plane cycle; origin ${runtimeOrigin}; bits ${bits}; cycle 24`, { staticMode: false, origin: runtimeOrigin, advance: 1 });
         }
         if (el.sliceSchedule.value === "moving") {
           const slices = [];
@@ -2135,7 +2135,7 @@
         setElementContextDisabled(el[id], !bitOn || mode !== "bits");
       }
       const asyncSchedule = mode === "bits" && el.sliceSchedule.value === "async";
-      setElementContextDisabled(el.bitsPerSlice, !bitOn || mode !== "bits" || asyncSchedule);
+      setElementContextDisabled(el.bitsPerSlice, !bitOn || mode !== "bits");
       setElementContextDisabled(el.sliceAdvance, !bitOn || mode !== "bits" || asyncSchedule);
       setElementContextDisabled(el.activeSlices, !bitOn || mode !== "bits" || asyncSchedule);
       setElementContextDisabled(el.multiSpeedToggle, !bitOn);
