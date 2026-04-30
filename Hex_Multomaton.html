@@ -1257,6 +1257,44 @@
       }
       return false;
     }
+    function selectedColorNeighborhoodHasAny(i, x, y, considered, sliceMask) {
+      if (colors[i] & sliceMask) return true;
+      for (const u of considered) {
+        for (const [dx, dy] of neighborhoods[u].offsets) {
+          const ni = idx(x + dx, y + dy);
+          if (ni >= 0 && (colors[ni] & sliceMask)) return true;
+        }
+      }
+      return false;
+    }
+    function collectCandidateColorBitData(x, y, considered, bitMask) {
+      const counts = [];
+      const nonzeroUniverses = [];
+      const parentMaskByLiveNeighbor = { mask: 0 };
+      for (const u of considered) {
+        let count = 0;
+        for (const [dx, dy] of neighborhoods[u].offsets) {
+          const ni = idx(x + dx, y + dy);
+          if (ni >= 0 && (colors[ni] & bitMask)) {
+            count++;
+            parentMaskByLiveNeighbor.mask |= masks[ni] || (1 << u);
+          }
+        }
+        counts.push(count);
+        if (count) nonzeroUniverses.push(u);
+      }
+      const mateColors = [];
+      const mateNeighborhoods = el.sliceInteraction.value === "isolated"
+        ? considered.map(u => neighborhoods[u])
+        : neighborhoods;
+      for (const nbh of mateNeighborhoods) {
+        for (const [dx, dy] of nbh.offsets) {
+          const ni = idx(x + dx, y + dy);
+          if (ni >= 0 && colors[ni] && (colors[ni] & bitMask || el.sliceInteraction.value !== "isolated")) mateColors.push(colors[ni]);
+        }
+      }
+      return { counts, nonzeroUniverses, parentMask: parentMaskByLiveNeighbor.mask, mateColors };
+    }
     function lineageForBirth(oldMask, nonzeroUniverses, parentMask) {
       switch (el.newbornLineage.value) {
         case "all": return allMask();
@@ -1323,20 +1361,20 @@
           if (!slice.active) continue;
           const groupMask = slice.mask & FULL;
           if (perBitSliceLogic) {
-            if (!selectedNeighborhoodHasAny(i, x, y, considered, groupMask)) {
+            if (!selectedColorNeighborhoodHasAny(i, x, y, considered, groupMask)) {
               newColor = (newColor & ~groupMask) | (oldColor & groupMask);
-              newAliveMask = (newAliveMask & ~groupMask) | (oldAliveBits & groupMask);
+              newAliveMask = (newAliveMask & ~groupMask) | (oldColor & groupMask);
               continue;
             }
             let selectedColor = 0;
             let selectedAliveMask = 0;
             for (const bit of bitPositionsFromMask(groupMask)) {
               const bitMask = (1 << bit) >>> 0;
-              const data = collectCandidateData(i, x, y, considered, bitMask);
+              const data = collectCandidateColorBitData(x, y, considered, bitMask);
               const census = resolveConsensus(data.counts, birthRule, survivalRule);
               const isBirth = census === "BIRTH" || birthRule.has(census);
               const isSurvival = census === "SURVIVAL" || survivalRule.has(census);
-              const bitAlive = (oldAliveBits & bitMask) !== 0;
+              const bitAlive = (oldColor & bitMask) !== 0;
               checksum = (checksum * 1.0001 + new Set(data.counts.filter(Boolean)).size + Number(bitAlive)) % Math.max(1, N);
               if (!bitAlive && isBirth) {
                 if (birthColor == null || el.sliceInteraction.value === "strong") {
@@ -1352,7 +1390,7 @@
                 born = true;
                 stats.births++;
               } else if (bitAlive && isSurvival) {
-                selectedColor |= (oldColor & bitMask) || bitMask;
+                selectedColor |= oldColor & bitMask;
                 selectedAliveMask |= bitMask;
                 survived = true;
                 stats.survivals++;
@@ -2300,7 +2338,7 @@
       el.sliceOrigin.value = 0;
       el.activeSlices.value = 24;
       el.sliceInteraction.value = "weak";
-      el.seedBits.value = "full";
+      el.seedBits.value = "color";
       el.hueOffset.value = -70;
       el.cpuBirths.value = 15;
       el.colorByUniverse.value = 7;
