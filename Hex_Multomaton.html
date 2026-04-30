@@ -399,7 +399,7 @@
         <div class="row"><label for="haloOpacity">Glass opacity</label><input id="haloOpacity" type="range" min="0" max="100" value="100"></div>
         <div class="row"><label for="haloDensity">Ghost size</label><input id="haloDensity" type="range" min="0" max="100" value="100"></div>
         <div class="row"><label for="ghostOpacity">Ghost opacity</label><input id="ghostOpacity" type="range" min="0" max="100" value="50"></div>
-        <div class="row"><label for="oversize">Scene zoom</label><input id="oversize" type="range" min="0" max="200" value="100"></div>
+        <div class="row"><label for="oversize">Scene zoom</label><input id="oversize" type="range" min="0" max="200" value="0"></div>
         <label class="check"><input id="mirrorBorders" type="checkbox" checked> Echo scene copies</label>
         <label class="check"><input id="wobble" type="checkbox" checked> Wobble display orientation</label>
         <div class="row"><label for="tiltSpeed">Tilt speed</label><input id="tiltSpeed" type="number" value="13"></div>
@@ -817,8 +817,8 @@
         borderY: pad,
         sceneW: Math.ceil(maxX - minX + pad * 2 + HEX_RENDER_SCALE * 2),
         sceneH: Math.ceil(maxY - minY + pad * 2 + HEX_RENDER_SCALE * 2),
-        focusX: (baseMinX + baseMaxX) / 2 - minX + pad,
-        focusY: (baseMinY + baseMaxY) / 2 - minY + pad,
+        focusX: (baseMinX + baseMaxX) / 2 - minX + pad + HEX_RENDER_SCALE,
+        focusY: (baseMinY + baseMaxY) / 2 - minY + pad + HEX_RENDER_SCALE,
         focusW: Math.ceil(baseMaxX - baseMinX + pad * 2 + HEX_RENDER_SCALE * 2),
         focusH: Math.ceil(baseMaxY - baseMinY + pad * 2 + HEX_RENDER_SCALE * 2)
       };
@@ -2067,7 +2067,7 @@
       el.haloDensity.value = 100;
       el.haloOpacity.value = 100;
       el.ghostOpacity.value = 50;
-      el.oversize.value = 100;
+      el.oversize.value = 0;
       for (const id of ["uBlinker", "uGlider0", "uAcorn", "uTen", "uOPent", "uQPent", "uTPent", "uXPent"]) el[id].checked = false;
       el.uGlider1.checked = true;
       el.uRPent.checked = true;
