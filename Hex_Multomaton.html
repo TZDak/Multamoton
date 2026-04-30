@@ -695,7 +695,7 @@
     function triangularToPlane(q, r) {
       const h = Math.sqrt(3) * .5;
       const parity = mod(q + r, 2);
-      return [q * .5, r * h + (parity ? h * 2 / 3 : h / 3)];
+      return [q + r * .5, r * h + (parity ? h / 6 : -h / 6)];
     }
     function rhombilleHexCenter(col, row) {
       return [col + row * .5, row * Math.sqrt(3) * .5];
@@ -1925,8 +1925,8 @@
         approxQ = planeX;
         approxR = planeY;
       } else if (internalGrid() === "triangle") {
-        approxQ = planeX * 2;
         approxR = planeY / (Math.sqrt(3) * .5);
+        approxQ = planeX - approxR * .5;
       } else if (internalGrid() === "rhombus") {
         approxR = planeY / (Math.sqrt(3) * .5);
         const col = planeX - approxR * .5;
