@@ -748,6 +748,11 @@
       }
       return axialToSceneDelta(q, r);
     }
+    function echoTiles() {
+      if (!el.mirrorBorders.checked) return [[0, 0]];
+      if (!hexFrameEnabled()) return [-1, 0, 1].flatMap(tx => [-1, 0, 1].map(ty => [tx, ty]));
+      return [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1]];
+    }
     function latticeDeltaToPlane(q, r) {
       const p = axialToPlane(q, r);
       const origin = axialToPlane(0, 0);
@@ -791,9 +796,11 @@
     }
     function computeHexLayout() {
       const baseSamples = layoutSampleCells().map(([x, y]) => axialToSceneDelta(x, y));
-      const tiles = el.mirrorBorders.checked
-        ? [-1, 0, 1].flatMap(tx => [-1, 0, 1].map(ty => [tx, ty]))
-        : [[0, 0]];
+      const baseXs = baseSamples.map(p => p[0]);
+      const baseYs = baseSamples.map(p => p[1]);
+      const baseMinX = Math.min(...baseXs), baseMaxX = Math.max(...baseXs);
+      const baseMinY = Math.min(...baseYs), baseMaxY = Math.max(...baseYs);
+      const tiles = echoTiles();
       const samples = [];
       for (const [tx, ty] of tiles) {
         const [shiftX, shiftY] = echoTileDelta(tx, ty);
@@ -809,7 +816,11 @@
         borderX: pad,
         borderY: pad,
         sceneW: Math.ceil(maxX - minX + pad * 2 + HEX_RENDER_SCALE * 2),
-        sceneH: Math.ceil(maxY - minY + pad * 2 + HEX_RENDER_SCALE * 2)
+        sceneH: Math.ceil(maxY - minY + pad * 2 + HEX_RENDER_SCALE * 2),
+        focusX: (baseMinX + baseMaxX) / 2 - minX + pad,
+        focusY: (baseMinY + baseMaxY) / 2 - minY + pad,
+        focusW: Math.ceil(baseMaxX - baseMinX + pad * 2 + HEX_RENDER_SCALE * 2),
+        focusH: Math.ceil(baseMaxY - baseMinY + pad * 2 + HEX_RENDER_SCALE * 2)
       };
       return hexLayout;
     }
@@ -1633,9 +1644,7 @@
       const ghostAlpha = clamp(Number(el.ghostOpacity.value) / 100, 0, 1) * 1.10;
       if ((glassRadius <= 0 || glassAlpha <= 0) && (ghostRadius <= glassRadius + .001 || ghostAlpha <= 0)) return false;
       target.globalCompositeOperation = "lighter";
-      const tiles = el.mirrorBorders.checked
-        ? [-1, 0, 1].flatMap(tx => [-1, 0, 1].map(ty => [tx, ty]))
-        : [[0, 0]];
+      const tiles = echoTiles();
       const data = image.data;
       for (let i = 0; i < N; i++) {
         const x = i % W, y = Math.floor(i / W);
@@ -1670,9 +1679,7 @@
       sceneCtx.clearRect(0, 0, sceneW, sceneH);
       sceneCtx.fillStyle = "#000";
       sceneCtx.fillRect(0, 0, sceneW, sceneH);
-      const tiles = el.mirrorBorders.checked
-        ? [-1, 0, 1].flatMap(tx => [-1, 0, 1].map(ty => [tx, ty]))
-        : [[0, 0]];
+      const tiles = echoTiles();
       const coreRadius = HEX_RENDER_SCALE * .43;
       for (let i = 0; i < N; i++) {
         const c = visibleColorForCell(i);
@@ -1733,8 +1740,8 @@
       tracePlanePolygon(target, translatedPlanePoints(gridCellPolygon(q, r), tx, ty));
     }
     function scenePointToCanvas(sx, sy, scene, scale, angle) {
-      const x = (sx - scene.sceneW / 2) * scale;
-      const y = (sy - scene.sceneH / 2) * scale;
+      const x = (sx - scene.focusX) * scale;
+      const y = (sy - scene.focusY) * scale;
       const ca = Math.cos(angle), sa = Math.sin(angle);
       return [canvas.width / 2 + x * ca - y * sa, canvas.height / 2 + x * sa + y * ca];
     }
@@ -1767,9 +1774,7 @@
         gridOverlaySamples = [];
         gridOverlayKey = key;
       }
-      const tiles = el.mirrorBorders.checked
-        ? [-1, 0, 1].flatMap(tx => [-1, 0, 1].map(ty => [tx, ty]))
-        : [[0, 0]];
+      const tiles = echoTiles();
       if (gridCanvas.width !== canvas.width || gridCanvas.height !== canvas.height) {
         gridCanvas.width = canvas.width;
         gridCanvas.height = canvas.height;
@@ -1780,7 +1785,7 @@
       gridCtx.translate(canvas.width / 2, canvas.height / 2);
       gridCtx.rotate(angle);
       gridCtx.scale(scale, scale);
-      gridCtx.translate(-scene.sceneW / 2, -scene.sceneH / 2);
+      gridCtx.translate(-scene.focusX, -scene.focusY);
       gridCtx.lineWidth = 1 / scale;
       gridCtx.strokeStyle = "#fff";
       gridCtx.beginPath();
@@ -1829,8 +1834,8 @@
       const ca = Math.abs(Math.cos(angle));
       const sa = Math.abs(Math.sin(angle));
       return {
-        w: scene.sceneW * ca + scene.sceneH * sa,
-        h: scene.sceneW * sa + scene.sceneH * ca
+        w: scene.focusW * ca + scene.focusH * sa,
+        h: scene.focusW * sa + scene.focusH * ca
       };
     }
     function sceneScaleForZoom(scene) {
@@ -1857,7 +1862,7 @@
       ctx.translate(canvas.width / 2, canvas.height / 2);
       ctx.rotate(angle);
       ctx.scale(scale, scale);
-      ctx.translate(-scene.sceneW / 2, -scene.sceneH / 2);
+      ctx.translate(-scene.focusX, -scene.focusY);
       ctx.drawImage(scene.canvas, 0, 0);
       if (el.renderMode.value === "python" || el.renderMode.value === "soft") {
         drawHaloLayer(ctx, scene.sceneW, scene.sceneH, scene.borderX, scene.borderY);
@@ -1866,7 +1871,7 @@
       ctx.globalCompositeOperation = "source-over";
       ctx.restore();
       drawGridOverlay(scene, scale, angle);
-      view = { ...view, angle, scale, sceneW: scene.sceneW, sceneH: scene.sceneH, borderX: scene.borderX, borderY: scene.borderY };
+      view = { ...view, angle, scale, sceneW: scene.sceneW, sceneH: scene.sceneH, focusX: scene.focusX, focusY: scene.focusY, borderX: scene.borderX, borderY: scene.borderY };
       updateHud();
     }
     function updateHud() {
@@ -1893,8 +1898,8 @@
       const sa = Math.sin(-view.angle);
       const rx = dx * ca - dy * sa;
       const ry = dx * sa + dy * ca;
-      const sceneX = rx / view.scale + view.sceneW / 2;
-      const sceneY = ry / view.scale + view.sceneH / 2;
+      const sceneX = rx / view.scale + (view.focusX || view.sceneW / 2);
+      const sceneY = ry / view.scale + (view.focusY || view.sceneH / 2);
       const planeX = (sceneX - hexLayout.borderX + hexLayout.minX) / HEX_RENDER_SCALE;
       const planeY = (sceneY - hexLayout.borderY + hexLayout.minY) / HEX_RENDER_SCALE;
       let approxQ, approxR;
