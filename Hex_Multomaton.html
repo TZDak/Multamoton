@@ -757,10 +757,40 @@
       const p = axialToSceneDelta(x, y);
       return [p[0] - hexLayout.minX + hexLayout.borderX, p[1] - hexLayout.minY + hexLayout.borderY];
     }
+    function layoutSampleCells() {
+      if (!hexFrameEnabled()) {
+        return [[0, 0], [W - 1, 0], [0, H - 1], [W - 1, H - 1]];
+      }
+      const radius = frameRadius();
+      const seen = new Set();
+      const out = [];
+      const add = (q, r) => {
+        if (axialHexNorm(q, r) > radius) return;
+        const types = internalGrid() === "rhombus" ? [0, 1, 2] : [0];
+        for (const type of types) {
+          const [x, y] = uncenteredAxial(q, r, type);
+          const key = `${x},${y}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            out.push([x, y]);
+          }
+        }
+      };
+      for (let q = -radius; q <= radius; q++) {
+        add(q, -radius);
+        add(q, radius);
+        add(q, -q - radius);
+        add(q, -q + radius);
+      }
+      for (let r = -radius; r <= radius; r++) {
+        add(-radius, r);
+        add(radius, r);
+      }
+      add(0, 0);
+      return out;
+    }
     function computeHexLayout() {
-      const sampleX = [...new Set([0, 1, 2, W - 3, W - 2, W - 1].filter(x => 0 <= x && x < W))];
-      const sampleY = [...new Set([0, H - 1].filter(y => 0 <= y && y < H))];
-      const samples = sampleX.flatMap(x => sampleY.map(y => axialToSceneDelta(x, y)));
+      const samples = layoutSampleCells().map(([x, y]) => axialToSceneDelta(x, y));
       const xs = samples.map(p => p[0]);
       const ys = samples.map(p => p[1]);
       const minX = Math.min(...xs), maxX = Math.max(...xs);
@@ -2145,7 +2175,7 @@
           render();
         } else if (input === el.useBitLayers) {
           render();
-        } else if (input === el.gridRadius) {
+        } else if (input === el.gridRadius || input === el.gridElement) {
           resizeWorld();
           seedWorld();
         } else if (restartIds.has(input.id)) {
