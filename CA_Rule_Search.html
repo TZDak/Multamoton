@@ -182,6 +182,12 @@
       <option value="soup">random soup</option>
       <option value="mixed">mixed</option>
     </select></div>
+    <div class="row"><label for="targetProfile">Ranking target</label><select id="targetProfile">
+      <option value="blend" selected>popular blend</option>
+      <option value="life">Conway Life</option>
+      <option value="highlife">HighLife</option>
+      <option value="daynight">Day & Night</option>
+    </select></div>
     <div class="row"><label for="seed">Seed</label><input id="seed" type="number" value="12345"></div>
     <div class="row"><label for="width">Grid size</label><input id="width" type="number" min="24" max="256" value="96"></div>
     <div class="row"><label for="samplesPerBatch">Samples / batch</label><input id="samplesPerBatch" type="number" min="1" max="50" value="4"></div>
@@ -228,7 +234,7 @@
     const $ = id => document.getElementById(id);
     const el = {
       start: $("start"), stop: $("stop"), step: $("step"), reset: $("reset"),
-      initializer: $("initializer"), seed: $("seed"), width: $("width"),
+      initializer: $("initializer"), targetProfile: $("targetProfile"), seed: $("seed"), width: $("width"),
       samplesPerBatch: $("samplesPerBatch"), generations: $("generations"),
       chunkMs: $("chunkMs"), soupDensity: $("soupDensity"),
       neighborhoods: $("neighborhoods"), branchChance: $("branchChance"),
@@ -237,11 +243,17 @@
     };
     const ctx = el.preview.getContext("2d");
     const rules = [
-      makeRule("Life", "B3/S23", [3], [2, 3]),
-      makeRule("HighLife", "B36/S23", [3, 6], [2, 3]),
-      makeRule("Day & Night", "B3678/S34678", [3, 6, 7, 8], [3, 4, 6, 7, 8]),
-      makeRule("Seeds", "B2/S", [2], []),
-      makeRule("Maze", "B3/S12345", [3], [1, 2, 3, 4, 5])
+      makeRule("Life", "B3/S23", [3], [2, 3], "life"),
+      makeRule("HighLife", "B36/S23", [3, 6], [2, 3], "highlife"),
+      makeRule("Day & Night", "B3678/S34678", [3, 6, 7, 8], [3, 4, 6, 7, 8], "daynight"),
+      makeRule("Seeds", "B2/S", [2], [], "seeds", 0.6),
+      makeRule("Maze", "B3/S12345", [3], [1, 2, 3, 4, 5], "maze", 0.8),
+      makeRule("Diamoeba", "B35678/S5678", [3, 5, 6, 7, 8], [5, 6, 7, 8], "diamoeba", 0.8),
+      makeRule("Replicator", "B1357/S1357", [1, 3, 5, 7], [1, 3, 5, 7], "replicator", 0.7),
+      makeRule("Morley", "B368/S245", [3, 6, 8], [2, 4, 5], "morley"),
+      makeRule("2x2", "B36/S125", [3, 6], [1, 2, 5], "2x2"),
+      makeRule("EightLife", "B3/S238", [3], [2, 3, 8], "eightlife"),
+      makeRule("Pedestrian", "B38/S23", [3, 8], [2, 3], "pedestrian")
     ];
     const offsets = [
       [-1, -1], [0, -1], [1, -1],
@@ -254,9 +266,9 @@
     let batchIndex = 0;
     let lastPreview = null;
 
-    function makeRule(name, text, birth, survival) {
+    function makeRule(name, text, birth, survival, id, referenceWeight = 1) {
       return {
-        name, text,
+        name, text, id, referenceWeight,
         birth: new Set(birth),
         survival: new Set(survival),
         stats: {
@@ -450,15 +462,33 @@
       return [s.density, s.activity, s.wiggle, s.extinct, s.explode, s.repeat, s.finalDensity];
     }
 
-    function distanceFromLife(rule) {
-      const life = rules[0];
-      if (!life.stats.samples || !rule.stats.samples) return rule === life ? 0 : Infinity;
+    function targetVector() {
+      const target = el.targetProfile.value;
+      if (target !== "blend") {
+        const rule = rules.find(r => r.id === target);
+        return rule && rule.stats.samples ? featureVector(rule) : null;
+      }
+      const acc = new Array(featureVector(rules[0]).length).fill(0);
+      let totalWeight = 0;
+      for (const rule of rules) {
+        if (!rule.referenceWeight || !rule.stats.samples) continue;
+        const weight = rule.referenceWeight;
+        const v = featureVector(rule);
+        for (let i = 0; i < acc.length; i++) acc[i] += v[i] * weight;
+        totalWeight += weight;
+      }
+      if (!totalWeight) return null;
+      return acc.map(v => v / totalWeight);
+    }
+
+    function distanceFromTarget(rule) {
+      const target = targetVector();
+      if (!target || !rule.stats.samples) return Infinity;
       const a = featureVector(rule);
-      const b = featureVector(life);
       const weights = [2.2, 2.0, 1.3, 1.7, 1.7, 1.0, 1.2];
       let sum = 0;
       for (let i = 0; i < a.length; i++) {
-        const d = a[i] - b[i];
+        const d = a[i] - target[i];
         sum += d * d * weights[i];
       }
       return Math.sqrt(sum);
@@ -482,10 +512,10 @@
     }
 
     function renderResults() {
-      const ranked = rules.slice().sort((a, b) => distanceFromLife(a) - distanceFromLife(b));
+      const ranked = rules.slice().sort((a, b) => distanceFromTarget(a) - distanceFromTarget(b));
       el.results.innerHTML = ranked.map(rule => {
         const s = rule.stats;
-        const dist = distanceFromLife(rule);
+        const dist = distanceFromTarget(rule);
         return `<tr class="${rule.name === "Life" ? "life" : ""}">
           <td title="${rule.name}">${rule.name}</td>
           <td>${rule.text}</td>
@@ -507,7 +537,7 @@
         `current rule: ${rules[cursor]?.name || rules[0].name}\n` +
         `keys: Space start/stop, Escape stop`;
       el.details.textContent =
-        `Distance is measured against Conway Life's current cumulative profile.\n` +
+        `Distance is measured against the selected target profile: ${el.targetProfile.options[el.targetProfile.selectedIndex].text}.\n` +
         `Metrics: mean density, mean activity, population wiggle, extinction, explosion, repeat detection, final density.\n` +
         `This first version uses Moore radius-1 offsets only; the vector-neighborhood generalization can replace the offset list without changing the stats loop.`;
       renderPreview();
@@ -552,6 +582,7 @@
 
     el.start.addEventListener("click", start);
     el.stop.addEventListener("click", stop);
+    el.targetProfile.addEventListener("change", renderResults);
     el.step.addEventListener("click", () => {
       runBatchFor(rules[cursor]);
       cursor = (cursor + 1) % rules.length;
