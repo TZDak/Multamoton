@@ -269,6 +269,7 @@
     let rng = mulberry32(12345);
     let running = false;
     let referenceIndex = 0;
+    let referenceSweeps = 0;
     let searchCursor = 0;
     let searchLoops = 0;
     let lastPreview = null;
@@ -618,6 +619,7 @@
         `state: ${running ? "running" : "stopped"}\n` +
         `phase: ${phase}\n` +
         `reference: ${Math.min(referenceIndex, referenceRules.length)} / ${referenceRules.length}${currentReference ? " (" + currentReference.name + ")" : ""}\n` +
+        `reference sweeps: ${referenceSweeps}\n` +
         `search cursor: ${searchCursor} / ${MAX_GENOME_RULES - 1}\n` +
         `search loops: ${searchLoops}\n` +
         `reference samples: ${referenceSamples}; search samples: ${searchSamples}\n` +
@@ -638,14 +640,20 @@
         runBatchFor(referenceRules[referenceIndex]);
         referenceIndex++;
         if (referenceIndex === referenceRules.length) {
+          referenceSweeps++;
           saveState(false);
-          statusMessage = "reference calibration complete; SATD search started";
+          statusMessage = `reference sweep ${referenceSweeps} complete; SATD search ${searchLoops ? "resumed" : "started"}`;
         }
         return;
       }
       runBatchFor(getSearchRule(searchCursor));
       searchCursor = (searchCursor + 1) % MAX_GENOME_RULES;
-      if (searchCursor === 0) searchLoops++;
+      if (searchCursor === 0) {
+        searchLoops++;
+        referenceIndex = 0;
+        saveState(false);
+        statusMessage = `full SATD pass ${searchLoops} complete; refreshing reference profile`;
+      }
       if ((searchCursor % 64) === 0) saveState(false);
     }
 
@@ -675,6 +683,7 @@
       stop();
       rng = mulberry32(intInput(el.seed, 0, 0xffffffff, 12345));
       referenceIndex = 0;
+      referenceSweeps = 0;
       searchCursor = 0;
       searchLoops = 0;
       searchRules = new Map();
@@ -707,6 +716,7 @@
         savedAt: savedAt.toISOString(),
         seed: intInput(el.seed, 0, 0xffffffff, 12345),
         referenceIndex,
+        referenceSweeps,
         searchCursor,
         searchLoops,
         references: referenceRules.map(rule => [rule.id, compactStats(rule.stats)]),
@@ -752,6 +762,7 @@
         const payload = JSON.parse(raw);
         if (!payload || payload.version !== 2) throw new Error("saved data version does not match this page");
         referenceIndex = Math.max(0, Math.min(referenceRules.length, Number(payload.referenceIndex) || 0));
+        referenceSweeps = Math.max(0, Number(payload.referenceSweeps) || 0);
         searchCursor = Math.max(0, Math.min(MAX_GENOME_RULES - 1, Number(payload.searchCursor) || 0));
         searchLoops = Math.max(0, Number(payload.searchLoops) || 0);
         rng = mulberry32(Number(payload.seed) || intInput(el.seed, 0, 0xffffffff, 12345));
@@ -773,7 +784,8 @@
           time: new Date(payload.savedAt).toLocaleTimeString(),
           bytes: raw.length
         };
-        statusMessage = `loaded ${searchRules.size} searched genomes from ${new Date(payload.savedAt).toLocaleString()}`;
+        referenceIndex = 0;
+        statusMessage = `loaded ${searchRules.size} searched genomes from ${new Date(payload.savedAt).toLocaleString()}; reference sweep queued`;
       } catch (error) {
         statusMessage = `load failed: ${error.message}`;
       }
