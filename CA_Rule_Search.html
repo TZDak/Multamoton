@@ -274,6 +274,7 @@
     let lastPreview = null;
     let searchRules = new Map();
     let statusMessage = "";
+    let lastSaveInfo = null;
 
     function blankStats() {
       return { samples: 0, density: 0, activity: 0, wiggle: 0, extinct: 0, explode: 0, repeat: 0, finalDensity: 0 };
@@ -610,6 +611,9 @@
       const searchSamples = [...searchRules.values()].reduce((a, r) => a + r.stats.samples, 0);
       const phase = referenceIndex < referenceRules.length ? "reference calibration" : "SATD genome search";
       const currentReference = referenceRules[referenceIndex];
+      const saveLine = lastSaveInfo
+        ? `last save: ${lastSaveInfo.ok ? "ok" : "failed"}; cursor ${lastSaveInfo.searchCursor}; genomes ${lastSaveInfo.searchCount}; ${lastSaveInfo.time}${lastSaveInfo.bytes ? "; " + lastSaveInfo.bytes + " bytes" : ""}\n`
+        : "";
       el.status.textContent =
         `state: ${running ? "running" : "stopped"}\n` +
         `phase: ${phase}\n` +
@@ -617,6 +621,7 @@
         `search cursor: ${searchCursor} / ${MAX_GENOME_RULES - 1}\n` +
         `search loops: ${searchLoops}\n` +
         `reference samples: ${referenceSamples}; search samples: ${searchSamples}\n` +
+        saveLine +
         `${statusMessage ? "note: " + statusMessage + "\n" : ""}` +
         `keys: Space start/stop, Escape stop`;
       el.details.textContent =
@@ -633,8 +638,8 @@
         runBatchFor(referenceRules[referenceIndex]);
         referenceIndex++;
         if (referenceIndex === referenceRules.length) {
-          statusMessage = "reference calibration complete; saved automatically";
-          saveState();
+          saveState(false);
+          statusMessage = "reference calibration complete; SATD search started";
         }
         return;
       }
@@ -674,6 +679,7 @@
       searchLoops = 0;
       searchRules = new Map();
       statusMessage = "";
+      lastSaveInfo = null;
       lastPreview = null;
       for (const rule of referenceRules) {
         rule.stats = blankStats();
@@ -695,9 +701,10 @@
     }
 
     function saveState(report = true) {
+      const savedAt = new Date();
       const payload = {
         version: 2,
-        savedAt: new Date().toISOString(),
+        savedAt: savedAt.toISOString(),
         seed: intInput(el.seed, 0, 0xffffffff, 12345),
         referenceIndex,
         searchCursor,
@@ -708,9 +715,26 @@
           .map(rule => [rule.number, compactStats(rule.stats)])
       };
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-        if (report) statusMessage = `saved ${payload.search.length} searched genomes at ${new Date(payload.savedAt).toLocaleTimeString()}`;
+        const encoded = JSON.stringify(payload);
+        localStorage.setItem(STORAGE_KEY, encoded);
+        lastSaveInfo = {
+          ok: true,
+          searchCursor: payload.searchCursor,
+          searchCount: payload.search.length,
+          time: savedAt.toLocaleTimeString(),
+          bytes: encoded.length
+        };
+        statusMessage = report
+          ? `saved ${payload.search.length} searched genomes`
+          : `autosaved at cursor ${payload.searchCursor}`;
       } catch (error) {
+        lastSaveInfo = {
+          ok: false,
+          searchCursor,
+          searchCount: searchRules.size,
+          time: savedAt.toLocaleTimeString(),
+          bytes: 0
+        };
         statusMessage = `save failed: ${error.message}`;
       }
       if (report || !running) renderResults();
@@ -742,6 +766,13 @@
           const rule = getSearchRule(n);
           rule.stats = expandStats(stats);
         }
+        lastSaveInfo = {
+          ok: true,
+          searchCursor,
+          searchCount: searchRules.size,
+          time: new Date(payload.savedAt).toLocaleTimeString(),
+          bytes: raw.length
+        };
         statusMessage = `loaded ${searchRules.size} searched genomes from ${new Date(payload.savedAt).toLocaleString()}`;
       } catch (error) {
         statusMessage = `load failed: ${error.message}`;
