@@ -198,6 +198,26 @@
       <option value="life">Conway Life</option>
       <option value="highlife">HighLife</option>
       <option value="daynight">Day & Night</option>
+      <option value="seeds">Seeds</option>
+      <option value="maze">Maze</option>
+      <option value="diamoeba">Diamoeba</option>
+      <option value="replicator">Replicator</option>
+      <option value="morley">Morley</option>
+      <option value="2x2">2x2</option>
+      <option value="eightlife">EightLife</option>
+      <option value="pedestrian">Pedestrian</option>
+      <option value="longlife">Long Life</option>
+      <option value="34life">34 Life</option>
+      <option value="mazectric">Mazectric</option>
+      <option value="amoeba">Amoeba</option>
+      <option value="pseudolife">Pseudo Life</option>
+      <option value="coral">Coral</option>
+      <option value="coagulations">Coagulations</option>
+      <option value="stains">Stains</option>
+      <option value="serviettes">Serviettes</option>
+      <option value="lifewithoutdeath">Life without Death</option>
+      <option value="gnarl">Gnarl</option>
+      <option value="livefreeordie">Live Free or Die</option>
     </select></div>
     <div class="row"><label for="seed">Seed</label><input id="seed" type="number" value="12345"></div>
     <div class="row"><label for="width">Grid size</label><input id="width" type="number" min="24" max="256" value="96"></div>
@@ -271,7 +291,19 @@
       makeReferenceRule("Morley", "B368/S245", [3, 6, 8], [2, 4, 5], "morley", 1),
       makeReferenceRule("2x2", "B36/S125", [3, 6], [1, 2, 5], "2x2", 1),
       makeReferenceRule("EightLife", "B3/S238", [3], [2, 3, 8], "eightlife", 1),
-      makeReferenceRule("Pedestrian", "B38/S23", [3, 8], [2, 3], "pedestrian", 1)
+      makeReferenceRule("Pedestrian", "B38/S23", [3, 8], [2, 3], "pedestrian", 1),
+      makeReferenceRule("Long Life", "B345/S5", [3, 4, 5], [5], "longlife", 1),
+      makeReferenceRule("34 Life", "B34/S34", [3, 4], [3, 4], "34life", 1),
+      makeReferenceRule("Mazectric", "B3/S1234", [3], [1, 2, 3, 4], "mazectric", 1),
+      makeReferenceRule("Amoeba", "B357/S1358", [3, 5, 7], [1, 3, 5, 8], "amoeba", 1),
+      makeReferenceRule("Pseudo Life", "B357/S238", [3, 5, 7], [2, 3, 8], "pseudolife", 1),
+      makeReferenceRule("Coral", "B3/S45678", [3], [4, 5, 6, 7, 8], "coral", 1),
+      makeReferenceRule("Coagulations", "B378/S235678", [3, 7, 8], [2, 3, 5, 6, 7, 8], "coagulations", 1),
+      makeReferenceRule("Stains", "B3678/S235678", [3, 6, 7, 8], [2, 3, 5, 6, 7, 8], "stains", 1),
+      makeReferenceRule("Serviettes", "B234/S", [2, 3, 4], [], "serviettes", 1),
+      makeReferenceRule("Life without Death", "B3/S012345678", [3], [0, 1, 2, 3, 4, 5, 6, 7, 8], "lifewithoutdeath", 1),
+      makeReferenceRule("Gnarl", "B1/S1", [1], [1], "gnarl", 1),
+      makeReferenceRule("Live Free or Die", "B2/S0", [2], [0], "livefreeordie", 1)
     ];
     const offsets = [
       [-1, -1], [0, -1], [1, -1],
@@ -699,7 +731,6 @@
         const compact = compactGene(rule.genome);
         const info = [
           rule.isReference ? rule.referenceName : "",
-          `SATD ${rule.genome}`,
           `${compactGeneRange(compact.highest)}`
         ].filter(Boolean).join("; ");
         return `<tr class="${rule.isReference ? "reference" : ""}">
@@ -740,8 +771,8 @@
         `Score is summed reference affinity: for each reference, weight / (1 + behavioral distance). Higher is closer to one or more references.\n` +
         `Nearest shows the closest named reference and its raw distance. The ranking target selector is kept for comparison/export work, but this table now sorts by score.\n` +
         `Genome display is compact SATD, big-endian by neighbor count: rightmost is 0 neighbors; omitted higher counts default to S.\n` +
-        `S=stagnate/NOP, A=activate, T=toggle, D=deactivate. Info shows the full internal SATD counts 0 through 8.\n` +
-        `Reference blend gives Conway Life weight 5 and each other reference rule weight 1, so Life has one third of the final reference blend.\n` +
+        `S=stagnate/NOP, A=activate, T=toggle, D=deactivate. Info shows the named reference, when any, and the compact genome count range.\n` +
+        `Conway Life has reference weight 5; each other reference rule has weight 1.\n` +
         `Metrics: mean density, mean activity, population wiggle, extinction, explosion, repeat detection, final density.\n` +
         `This version still uses a finite wrapped square grid with Moore radius-1 offsets; the vector-neighborhood generalization can replace the offset list later.`;
       renderPreview();
