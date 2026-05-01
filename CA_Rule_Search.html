@@ -222,8 +222,10 @@
         <table>
           <thead>
             <tr>
+              <th style="width: 64px">Rank</th>
               <th style="width: 98px">Number</th>
-              <th style="width: 118px">Genome</th>
+              <th style="width: 118px">Gene</th>
+              <th style="width: 180px">Info</th>
               <th>Samples</th>
               <th>Dist</th>
               <th>Density</th>
@@ -255,6 +257,7 @@
     const ctx = el.preview.getContext("2d");
     const STORAGE_KEY = "multomaton-rule-search-v2";
     const ACTIONS = ["S", "A", "T", "D"];
+    const GENE_ALPHABET = { S: "C", A: "A", T: "T", D: "G" };
     const GENOME_LENGTH = 9;
     const MAX_GENOME_RULES = 4 ** GENOME_LENGTH;
     const referenceRules = [
@@ -323,6 +326,18 @@
         place *= 4;
       }
       return number;
+    }
+
+    function compactGene(genome) {
+      let highest = GENOME_LENGTH - 1;
+      while (highest > 0 && genome[highest] === genome[highest - 1]) highest--;
+      let gene = "";
+      for (let i = highest; i >= 0; i--) gene += GENE_ALPHABET[genome[i]] || genome[i] || "?";
+      return { gene, highest };
+    }
+
+    function compactGeneRange(highest) {
+      return highest === 0 ? "0" : `${highest}+..0`;
     }
 
     function getSearchRule(number) {
@@ -652,16 +667,23 @@
       const rows = displayRows();
       el.results.innerHTML = rows.length ? rows.map(row => {
         if (row.type === "gap") {
-          return `<tr class="gap"><td colspan="10">... ${row.count} collected rule${row.count === 1 ? "" : "s"} omitted here ...</td></tr>`;
+          return `<tr class="gap"><td colspan="12">... ${row.count} collected rule${row.count === 1 ? "" : "s"} omitted here ...</td></tr>`;
         }
         const rule = row.rule;
         const s = rule.stats;
         const dist = distanceFromTarget(rule);
         const marker = rule.isReference ? " *" : "";
-        const title = rule.isReference ? `${rule.referenceName}; rank ${row.rank}; counts 0 through 8` : `rank ${row.rank}; counts 0 through 8`;
+        const compact = compactGene(rule.genome);
+        const info = [
+          rule.isReference ? rule.referenceName : "",
+          `SATD ${rule.genome}`,
+          `${compactGeneRange(compact.highest)}`
+        ].filter(Boolean).join("; ");
         return `<tr class="${rule.isReference ? "reference" : ""}">
+          <td>${row.rank}</td>
           <td>${rule.number}</td>
-          <td title="${title}">${rule.genome}${marker}</td>
+          <td>${compact.gene}${marker}</td>
+          <td>${info}</td>
           <td>${s.samples}</td>
           <td>${Number.isFinite(dist) ? dist.toFixed(4) : "-"}</td>
           <td>${s.density.toFixed(4)}</td>
@@ -671,7 +693,7 @@
           <td>${(s.explode * 100).toFixed(1)}%</td>
           <td>${(s.repeat * 100).toFixed(1)}%</td>
         </tr>`;
-      }).join("") : `<tr class="gap"><td colspan="10">${statusMessage || "No data loaded."}</td></tr>`;
+      }).join("") : `<tr class="gap"><td colspan="12">${statusMessage || "No data loaded."}</td></tr>`;
       const referenceSamples = referenceRules.reduce((a, r) => a + r.stats.samples, 0);
       const searchSamples = [...searchRules.values()].reduce((a, r) => a + r.stats.samples, 0);
       const phase = referenceIndex < referenceRules.length ? "calibration refinement" : "SATD genome search";
@@ -692,7 +714,8 @@
         `keys: Space start/stop, Escape stop`;
       el.details.textContent =
         `Distance is measured against the selected target profile: ${el.targetProfile.options[el.targetProfile.selectedIndex].text}.\n` +
-        `SATD genome positions are neighbor counts 0 through 8. S=stagnate, A=activate, T=toggle, D=deactivate.\n` +
+        `Gene display is compact CATG, big-endian by neighbor count: rightmost is 0 neighbors; leftmost applies to its shown count or higher.\n` +
+        `C=stagnate/conserve, A=activate, T=toggle, G=deactivate. Info shows the full internal SATD counts 0 through 8.\n` +
         `Reference blend gives Conway Life weight 5 and each other reference rule weight 1, so Life has one third of the final reference blend.\n` +
         `Metrics: mean density, mean activity, population wiggle, extinction, explosion, repeat detection, final density.\n` +
         `This version still uses a finite wrapped square grid with Moore radius-1 offsets; the vector-neighborhood generalization can replace the offset list later.`;
