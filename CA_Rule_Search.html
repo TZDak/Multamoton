@@ -168,7 +168,7 @@
 <body>
   <aside>
     <h1>Life-like Rule Search</h1>
-    <p class="note">Calibrates against popular reference rules, then searches SATD action genomes in numeric order. Generation 0 is ignored.</p>
+    <p class="note">Builds and refines a popular-reference profile, then searches SATD action genomes in numeric order. Generation 0 is ignored.</p>
 
     <h2>Run</h2>
     <div class="buttons">
@@ -610,7 +610,7 @@
       }).join("");
       const referenceSamples = referenceRules.reduce((a, r) => a + r.stats.samples, 0);
       const searchSamples = [...searchRules.values()].reduce((a, r) => a + r.stats.samples, 0);
-      const phase = referenceIndex < referenceRules.length ? "reference calibration" : "SATD genome search";
+      const phase = referenceIndex < referenceRules.length ? "calibration refinement" : "SATD genome search";
       const currentReference = referenceRules[referenceIndex];
       const saveLine = lastSaveInfo
         ? `last save: ${lastSaveInfo.ok ? "ok" : "failed"}; cursor ${lastSaveInfo.searchCursor}; genomes ${lastSaveInfo.searchCount}; ${lastSaveInfo.time}${lastSaveInfo.bytes ? "; " + lastSaveInfo.bytes + " bytes" : ""}\n`
@@ -619,7 +619,7 @@
         `state: ${running ? "running" : "stopped"}\n` +
         `phase: ${phase}\n` +
         `reference: ${Math.min(referenceIndex, referenceRules.length)} / ${referenceRules.length}${currentReference ? " (" + currentReference.name + ")" : ""}\n` +
-        `reference sweeps: ${referenceSweeps}\n` +
+        `reference refinements: ${referenceSweeps}\n` +
         `search cursor: ${searchCursor} / ${MAX_GENOME_RULES - 1}\n` +
         `search loops: ${searchLoops}\n` +
         `reference samples: ${referenceSamples}; search samples: ${searchSamples}\n` +
@@ -642,7 +642,7 @@
         if (referenceIndex === referenceRules.length) {
           referenceSweeps++;
           saveState(false);
-          statusMessage = `reference sweep ${referenceSweeps} complete; SATD search ${searchLoops ? "resumed" : "started"}`;
+          statusMessage = `calibration refinement ${referenceSweeps} complete; SATD search ${searchLoops ? "resumed" : "started"}`;
         }
         return;
       }
@@ -652,7 +652,7 @@
         searchLoops++;
         referenceIndex = 0;
         saveState(false);
-        statusMessage = `full SATD pass ${searchLoops} complete; refreshing reference profile`;
+        statusMessage = `full SATD pass ${searchLoops} complete; refining reference profile`;
       }
       if ((searchCursor % 64) === 0) saveState(false);
     }
@@ -785,7 +785,7 @@
           bytes: raw.length
         };
         referenceIndex = 0;
-        statusMessage = `loaded ${searchRules.size} searched genomes from ${new Date(payload.savedAt).toLocaleString()}; reference sweep queued`;
+        statusMessage = `loaded ${searchRules.size} searched genomes from ${new Date(payload.savedAt).toLocaleString()}; calibration refinement queued`;
       } catch (error) {
         statusMessage = `load failed: ${error.message}`;
       }
