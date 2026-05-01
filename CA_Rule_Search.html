@@ -106,9 +106,10 @@
       white-space: pre-wrap;
     }
     table {
-      width: 100%;
+      width: max-content;
+      max-width: none;
       border-collapse: collapse;
-      table-layout: fixed;
+      table-layout: auto;
       background: #0d1013;
       border: 1px solid var(--line);
       border-radius: 8px;
@@ -124,7 +125,9 @@
       text-overflow: ellipsis;
     }
     th:first-child, td:first-child,
-    th:nth-child(2), td:nth-child(2) {
+    th:nth-child(2), td:nth-child(2),
+    th:nth-child(3), td:nth-child(3),
+    th:nth-child(4), td:nth-child(4) {
       text-align: left;
     }
     th {
@@ -242,10 +245,10 @@
         <table>
           <thead>
             <tr>
-              <th style="width: 64px">Rank</th>
-              <th style="width: 98px">Number</th>
-              <th style="width: 118px">Genome</th>
-              <th style="width: 180px">Info</th>
+              <th>Rank</th>
+              <th>Number</th>
+              <th>Genome</th>
+              <th>Info</th>
               <th>Samples</th>
               <th>Score</th>
               <th>Nearest</th>
@@ -771,6 +774,7 @@
         `Score is summed reference affinity: for each reference, weight / (1 + behavioral distance). Higher is closer to one or more references.\n` +
         `Nearest shows the closest named reference and its raw distance. The ranking target selector is kept for comparison/export work, but this table now sorts by score.\n` +
         `Genome display is compact SATD, big-endian by neighbor count: rightmost is 0 neighbors; omitted higher counts default to S.\n` +
+        `A range like 6..0 means the displayed gene covers neighbor counts 6 down through 0; >=7 => S means 7 or more neighbors stagnate by default.\n` +
         `S=stagnate/NOP, A=activate, T=toggle, D=deactivate. Info shows the named reference, when any, and the compact genome count range.\n` +
         `Conway Life has reference weight 5; each other reference rule has weight 1.\n` +
         `Metrics: mean density, mean activity, population wiggle, extinction, explosion, repeat detection, final density.\n` +
