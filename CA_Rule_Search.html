@@ -168,7 +168,7 @@
 <body>
   <aside>
     <h1>Life-like Rule Search</h1>
-    <p class="note">Runs small repeated batches for a few known rules, then keeps looping and refining the cumulative statistics. Generation 0 is ignored.</p>
+    <p class="note">Calibrates against popular reference rules, then searches SATD action genomes in numeric order. Generation 0 is ignored.</p>
 
     <h2>Run</h2>
     <div class="buttons">
@@ -176,6 +176,8 @@
       <button id="stop">Stop</button>
       <button id="step">One batch</button>
       <button id="reset">Reset stats</button>
+      <button id="save">Save data</button>
+      <button id="load">Load data</button>
     </div>
     <div class="row"><label for="initializer">Initializer</label><select id="initializer">
       <option value="neighborhood" selected>random neighborhoods</option>
@@ -183,7 +185,7 @@
       <option value="mixed">mixed</option>
     </select></div>
     <div class="row"><label for="targetProfile">Ranking target</label><select id="targetProfile">
-      <option value="blend" selected>popular blend</option>
+      <option value="blend" selected>weighted references</option>
       <option value="life">Conway Life</option>
       <option value="highlife">HighLife</option>
       <option value="daynight">Day & Night</option>
@@ -211,8 +213,8 @@
         <table>
           <thead>
             <tr>
-              <th style="width: 112px">Rule</th>
-              <th style="width: 112px">B/S</th>
+              <th style="width: 98px">Number</th>
+              <th style="width: 118px">Genome</th>
               <th>Samples</th>
               <th>Dist</th>
               <th>Density</th>
@@ -233,7 +235,7 @@
   <script>
     const $ = id => document.getElementById(id);
     const el = {
-      start: $("start"), stop: $("stop"), step: $("step"), reset: $("reset"),
+      start: $("start"), stop: $("stop"), step: $("step"), reset: $("reset"), save: $("save"), load: $("load"),
       initializer: $("initializer"), targetProfile: $("targetProfile"), seed: $("seed"), width: $("width"),
       samplesPerBatch: $("samplesPerBatch"), generations: $("generations"),
       chunkMs: $("chunkMs"), soupDensity: $("soupDensity"),
@@ -242,18 +244,22 @@
       details: $("details"), preview: $("preview")
     };
     const ctx = el.preview.getContext("2d");
-    const rules = [
-      makeRule("Life", "B3/S23", [3], [2, 3], "life"),
-      makeRule("HighLife", "B36/S23", [3, 6], [2, 3], "highlife"),
-      makeRule("Day & Night", "B3678/S34678", [3, 6, 7, 8], [3, 4, 6, 7, 8], "daynight"),
-      makeRule("Seeds", "B2/S", [2], [], "seeds", 0.6),
-      makeRule("Maze", "B3/S12345", [3], [1, 2, 3, 4, 5], "maze", 0.8),
-      makeRule("Diamoeba", "B35678/S5678", [3, 5, 6, 7, 8], [5, 6, 7, 8], "diamoeba", 0.8),
-      makeRule("Replicator", "B1357/S1357", [1, 3, 5, 7], [1, 3, 5, 7], "replicator", 0.7),
-      makeRule("Morley", "B368/S245", [3, 6, 8], [2, 4, 5], "morley"),
-      makeRule("2x2", "B36/S125", [3, 6], [1, 2, 5], "2x2"),
-      makeRule("EightLife", "B3/S238", [3], [2, 3, 8], "eightlife"),
-      makeRule("Pedestrian", "B38/S23", [3, 8], [2, 3], "pedestrian")
+    const STORAGE_KEY = "multomaton-rule-search-v2";
+    const ACTIONS = ["S", "A", "T", "D"];
+    const GENOME_LENGTH = 9;
+    const MAX_GENOME_RULES = 4 ** GENOME_LENGTH;
+    const referenceRules = [
+      makeReferenceRule("Life", "B3/S23", [3], [2, 3], "life", 5),
+      makeReferenceRule("HighLife", "B36/S23", [3, 6], [2, 3], "highlife", 1),
+      makeReferenceRule("Day & Night", "B3678/S34678", [3, 6, 7, 8], [3, 4, 6, 7, 8], "daynight", 1),
+      makeReferenceRule("Seeds", "B2/S", [2], [], "seeds", 1),
+      makeReferenceRule("Maze", "B3/S12345", [3], [1, 2, 3, 4, 5], "maze", 1),
+      makeReferenceRule("Diamoeba", "B35678/S5678", [3, 5, 6, 7, 8], [5, 6, 7, 8], "diamoeba", 1),
+      makeReferenceRule("Replicator", "B1357/S1357", [1, 3, 5, 7], [1, 3, 5, 7], "replicator", 1),
+      makeReferenceRule("Morley", "B368/S245", [3, 6, 8], [2, 4, 5], "morley", 1),
+      makeReferenceRule("2x2", "B36/S125", [3, 6], [1, 2, 5], "2x2", 1),
+      makeReferenceRule("EightLife", "B3/S238", [3], [2, 3, 8], "eightlife", 1),
+      makeReferenceRule("Pedestrian", "B38/S23", [3, 8], [2, 3], "pedestrian", 1)
     ];
     const offsets = [
       [-1, -1], [0, -1], [1, -1],
@@ -262,20 +268,59 @@
     ];
     let rng = mulberry32(12345);
     let running = false;
-    let cursor = 0;
-    let batchIndex = 0;
+    let referenceIndex = 0;
+    let searchCursor = 0;
+    let searchLoops = 0;
     let lastPreview = null;
+    let searchRules = new Map();
+    let statusMessage = "";
 
-    function makeRule(name, text, birth, survival, id, referenceWeight = 1) {
-      return {
-        name, text, id, referenceWeight,
-        birth: new Set(birth),
-        survival: new Set(survival),
-        stats: {
-          samples: 0, density: 0, activity: 0, wiggle: 0,
-          extinct: 0, explode: 0, repeat: 0, finalDensity: 0
-        }
-      };
+    function blankStats() {
+      return { samples: 0, density: 0, activity: 0, wiggle: 0, extinct: 0, explode: 0, repeat: 0, finalDensity: 0 };
+    }
+
+    function makeRule(number, genome, id = "", name = "", referenceWeight = 0) {
+      return { number, genome, id, name, referenceWeight, stats: blankStats() };
+    }
+
+    function makeReferenceRule(name, text, birth, survival, id, referenceWeight = 1) {
+      return makeRule(genomeToNumber(genomeFromBS(birth, survival)), genomeFromBS(birth, survival), id, name, referenceWeight);
+    }
+
+    function genomeFromBS(birth, survival) {
+      const genome = Array(GENOME_LENGTH).fill("D");
+      for (const count of survival) if (count >= 0 && count < GENOME_LENGTH) genome[count] = "S";
+      for (const count of birth) if (count >= 0 && count < GENOME_LENGTH) genome[count] = "A";
+      return genome.join("");
+    }
+
+    function genomeFromNumber(number) {
+      let n = number;
+      let genome = "";
+      for (let i = 0; i < GENOME_LENGTH; i++) {
+        genome += ACTIONS[n & 3];
+        n = Math.floor(n / 4);
+      }
+      return genome;
+    }
+
+    function genomeToNumber(genome) {
+      let place = 1;
+      let number = 0;
+      for (let i = 0; i < GENOME_LENGTH; i++) {
+        number += Math.max(0, ACTIONS.indexOf(genome[i] || "S")) * place;
+        place *= 4;
+      }
+      return number;
+    }
+
+    function getSearchRule(number) {
+      let rule = searchRules.get(number);
+      if (!rule) {
+        rule = makeRule(number, genomeFromNumber(number));
+        searchRules.set(number, rule);
+      }
+      return rule;
     }
 
     function intInput(input, min, max, fallback) {
@@ -357,15 +402,23 @@
       return board;
     }
 
+    function applyAction(action, was) {
+      if (action === "S") return !!was;
+      if (action === "A") return true;
+      if (action === "T") return !was;
+      return false;
+    }
+
     function step(board, next, rule, size) {
       let pop = 0;
       let changed = 0;
+      const genome = rule.genome;
       for (let y = 0; y < size; y++) {
         for (let x = 0; x < size; x++) {
           let n = 0;
           for (const [dx, dy] of offsets) n += getCell(board, x + dx, y + dy, size);
           const was = getCell(board, x, y, size);
-          const alive = was ? rule.survival.has(n) : rule.birth.has(n);
+          const alive = applyAction(genome[n], was);
           const p = idx(x, y, size);
           next[p] = alive ? 1 : 0;
           if (alive) pop++;
@@ -457,20 +510,23 @@
       for (let i = 0; i < count; i++) addStats(rule, runSample(rule));
     }
 
-    function featureVector(rule) {
-      const s = rule.stats;
+    function featureVectorFromStats(s) {
       return [s.density, s.activity, s.wiggle, s.extinct, s.explode, s.repeat, s.finalDensity];
+    }
+
+    function featureVector(rule) {
+      return featureVectorFromStats(rule.stats);
     }
 
     function targetVector() {
       const target = el.targetProfile.value;
       if (target !== "blend") {
-        const rule = rules.find(r => r.id === target);
+        const rule = referenceRules.find(r => r.id === target);
         return rule && rule.stats.samples ? featureVector(rule) : null;
       }
-      const acc = new Array(featureVector(rules[0]).length).fill(0);
+      const acc = new Array(featureVector(referenceRules[0]).length).fill(0);
       let totalWeight = 0;
-      for (const rule of rules) {
+      for (const rule of referenceRules) {
         if (!rule.referenceWeight || !rule.stats.samples) continue;
         const weight = rule.referenceWeight;
         const v = featureVector(rule);
@@ -511,14 +567,35 @@
       ctx.putImageData(image, 0, 0);
     }
 
+    function interestingScore(rule) {
+      const s = rule.stats;
+      if (!s.samples) return 0;
+      const nonDegenerate = (1 - s.extinct) * (1 - s.explode);
+      const activityBand = Math.max(0, 1 - Math.abs(s.activity - 0.12) / 0.24);
+      const densityBand = Math.max(0, 1 - Math.abs(s.density - 0.20) / 0.40);
+      return nonDegenerate * (0.4 * activityBand + 0.3 * densityBand + 0.3 * Math.min(1, s.wiggle * 20));
+    }
+
+    function rankedSearchRules(limit = 80) {
+      return [...searchRules.values()]
+        .filter(rule => rule.stats.samples)
+        .sort((a, b) => {
+          const ad = distanceFromTarget(a);
+          const bd = distanceFromTarget(b);
+          if (Number.isFinite(ad) && Number.isFinite(bd) && ad !== bd) return ad - bd;
+          return interestingScore(b) - interestingScore(a);
+        })
+        .slice(0, limit);
+    }
+
     function renderResults() {
-      const ranked = rules.slice().sort((a, b) => distanceFromTarget(a) - distanceFromTarget(b));
+      const ranked = rankedSearchRules();
       el.results.innerHTML = ranked.map(rule => {
         const s = rule.stats;
         const dist = distanceFromTarget(rule);
-        return `<tr class="${rule.name === "Life" ? "life" : ""}">
-          <td title="${rule.name}">${rule.name}</td>
-          <td>${rule.text}</td>
+        return `<tr>
+          <td>${rule.number}</td>
+          <td title="counts 0 through 8">${rule.genome}</td>
           <td>${s.samples}</td>
           <td>${Number.isFinite(dist) ? dist.toFixed(4) : "-"}</td>
           <td>${s.density.toFixed(4)}</td>
@@ -529,27 +606,49 @@
           <td>${(s.repeat * 100).toFixed(1)}%</td>
         </tr>`;
       }).join("");
-      const total = rules.reduce((a, r) => a + r.stats.samples, 0);
+      const referenceSamples = referenceRules.reduce((a, r) => a + r.stats.samples, 0);
+      const searchSamples = [...searchRules.values()].reduce((a, r) => a + r.stats.samples, 0);
+      const phase = referenceIndex < referenceRules.length ? "reference calibration" : "SATD genome search";
+      const currentReference = referenceRules[referenceIndex];
       el.status.textContent =
         `state: ${running ? "running" : "stopped"}\n` +
-        `batch loops: ${batchIndex}\n` +
-        `total samples: ${total}\n` +
-        `current rule: ${rules[cursor]?.name || rules[0].name}\n` +
+        `phase: ${phase}\n` +
+        `reference: ${Math.min(referenceIndex, referenceRules.length)} / ${referenceRules.length}${currentReference ? " (" + currentReference.name + ")" : ""}\n` +
+        `search cursor: ${searchCursor} / ${MAX_GENOME_RULES - 1}\n` +
+        `search loops: ${searchLoops}\n` +
+        `reference samples: ${referenceSamples}; search samples: ${searchSamples}\n` +
+        `${statusMessage ? "note: " + statusMessage + "\n" : ""}` +
         `keys: Space start/stop, Escape stop`;
       el.details.textContent =
         `Distance is measured against the selected target profile: ${el.targetProfile.options[el.targetProfile.selectedIndex].text}.\n` +
+        `SATD genome positions are neighbor counts 0 through 8. S=stagnate, A=activate, T=toggle, D=deactivate.\n` +
+        `Reference blend gives Conway Life weight 5 and each other reference rule weight 1, so Life has one third of the final reference blend.\n` +
         `Metrics: mean density, mean activity, population wiggle, extinction, explosion, repeat detection, final density.\n` +
-        `This first version uses Moore radius-1 offsets only; the vector-neighborhood generalization can replace the offset list without changing the stats loop.`;
+        `This version still uses a finite wrapped square grid with Moore radius-1 offsets; the vector-neighborhood generalization can replace the offset list later.`;
       renderPreview();
+    }
+
+    function runOneWorkUnit() {
+      if (referenceIndex < referenceRules.length) {
+        runBatchFor(referenceRules[referenceIndex]);
+        referenceIndex++;
+        if (referenceIndex === referenceRules.length) {
+          statusMessage = "reference calibration complete; saved automatically";
+          saveState();
+        }
+        return;
+      }
+      runBatchFor(getSearchRule(searchCursor));
+      searchCursor = (searchCursor + 1) % MAX_GENOME_RULES;
+      if (searchCursor === 0) searchLoops++;
+      if ((searchCursor % 64) === 0) saveState(false);
     }
 
     function workLoop(deadlineStart) {
       const budget = intInput(el.chunkMs, 1, 100, 20);
       const started = performance.now();
       while (running && performance.now() - started < budget) {
-        runBatchFor(rules[cursor]);
-        cursor = (cursor + 1) % rules.length;
-        if (cursor === 0) batchIndex++;
+        runOneWorkUnit();
       }
       renderResults();
       if (running) requestAnimationFrame(workLoop);
@@ -570,23 +669,93 @@
     function resetStats() {
       stop();
       rng = mulberry32(intInput(el.seed, 0, 0xffffffff, 12345));
-      cursor = 0;
-      batchIndex = 0;
+      referenceIndex = 0;
+      searchCursor = 0;
+      searchLoops = 0;
+      searchRules = new Map();
+      statusMessage = "";
       lastPreview = null;
-      for (const rule of rules) {
-        rule.stats = { samples: 0, density: 0, activity: 0, wiggle: 0, extinct: 0, explode: 0, repeat: 0, finalDensity: 0 };
+      for (const rule of referenceRules) {
+        rule.stats = blankStats();
       }
       ctx.clearRect(0, 0, el.preview.width, el.preview.height);
       renderResults();
     }
 
+    function compactStats(s) {
+      return [s.samples, s.density, s.activity, s.wiggle, s.extinct, s.explode, s.repeat, s.finalDensity];
+    }
+
+    function expandStats(values) {
+      if (!Array.isArray(values)) return blankStats();
+      const keys = ["samples", "density", "activity", "wiggle", "extinct", "explode", "repeat", "finalDensity"];
+      const stats = blankStats();
+      keys.forEach((key, i) => stats[key] = Number(values[i]) || 0);
+      return stats;
+    }
+
+    function saveState(report = true) {
+      const payload = {
+        version: 2,
+        savedAt: new Date().toISOString(),
+        seed: intInput(el.seed, 0, 0xffffffff, 12345),
+        referenceIndex,
+        searchCursor,
+        searchLoops,
+        references: referenceRules.map(rule => [rule.id, compactStats(rule.stats)]),
+        search: [...searchRules.values()]
+          .filter(rule => rule.stats.samples)
+          .map(rule => [rule.number, compactStats(rule.stats)])
+      };
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        if (report) statusMessage = `saved ${payload.search.length} searched genomes at ${new Date(payload.savedAt).toLocaleTimeString()}`;
+      } catch (error) {
+        statusMessage = `save failed: ${error.message}`;
+      }
+      if (report || !running) renderResults();
+    }
+
+    function loadState() {
+      stop();
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) {
+        statusMessage = "no saved data found";
+        renderResults();
+        return;
+      }
+      try {
+        const payload = JSON.parse(raw);
+        if (!payload || payload.version !== 2) throw new Error("saved data version does not match this page");
+        referenceIndex = Math.max(0, Math.min(referenceRules.length, Number(payload.referenceIndex) || 0));
+        searchCursor = Math.max(0, Math.min(MAX_GENOME_RULES - 1, Number(payload.searchCursor) || 0));
+        searchLoops = Math.max(0, Number(payload.searchLoops) || 0);
+        rng = mulberry32(Number(payload.seed) || intInput(el.seed, 0, 0xffffffff, 12345));
+        for (const rule of referenceRules) rule.stats = blankStats();
+        for (const [id, stats] of payload.references || []) {
+          const rule = referenceRules.find(r => r.id === id);
+          if (rule) rule.stats = expandStats(stats);
+        }
+        searchRules = new Map();
+        for (const [number, stats] of payload.search || []) {
+          const n = Math.max(0, Math.min(MAX_GENOME_RULES - 1, Number(number) || 0));
+          const rule = getSearchRule(n);
+          rule.stats = expandStats(stats);
+        }
+        statusMessage = `loaded ${searchRules.size} searched genomes from ${new Date(payload.savedAt).toLocaleString()}`;
+      } catch (error) {
+        statusMessage = `load failed: ${error.message}`;
+      }
+      renderResults();
+    }
+
     el.start.addEventListener("click", start);
     el.stop.addEventListener("click", stop);
+    el.save.addEventListener("click", () => saveState());
+    el.load.addEventListener("click", loadState);
     el.targetProfile.addEventListener("change", renderResults);
     el.step.addEventListener("click", () => {
-      runBatchFor(rules[cursor]);
-      cursor = (cursor + 1) % rules.length;
-      if (cursor === 0) batchIndex++;
+      runOneWorkUnit();
       renderResults();
     });
     el.reset.addEventListener("click", resetStats);
