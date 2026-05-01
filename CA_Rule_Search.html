@@ -139,6 +139,9 @@
     tr.life {
       background: rgba(126, 200, 165, .08);
     }
+    tr.reference {
+      background: rgba(230, 190, 114, .08);
+    }
     canvas {
       width: 100%;
       max-height: 48vh;
@@ -578,6 +581,44 @@
       return nonDegenerate * (0.4 * activityBand + 0.3 * densityBand + 0.3 * Math.min(1, s.wiggle * 20));
     }
 
+    function combineStats(a, b) {
+      const samples = a.samples + b.samples;
+      if (!samples) return blankStats();
+      const combined = blankStats();
+      combined.samples = samples;
+      for (const key of ["density", "activity", "wiggle", "extinct", "explode", "repeat", "finalDensity"]) {
+        combined[key] = (a[key] * a.samples + b[key] * b.samples) / samples;
+      }
+      return combined;
+    }
+
+    function rankedDisplayRules(limit = 80) {
+      const merged = new Map();
+      for (const rule of searchRules.values()) {
+        if (!rule.stats.samples) continue;
+        merged.set(rule.number, { ...rule, isReference: false, referenceName: "" });
+      }
+      for (const ref of referenceRules) {
+        if (!ref.stats.samples) continue;
+        const existing = merged.get(ref.number);
+        if (existing) {
+          existing.stats = combineStats(existing.stats, ref.stats);
+          existing.isReference = true;
+          existing.referenceName = ref.name;
+        } else {
+          merged.set(ref.number, { ...ref, isReference: true, referenceName: ref.name });
+        }
+      }
+      return [...merged.values()]
+        .sort((a, b) => {
+          const ad = distanceFromTarget(a);
+          const bd = distanceFromTarget(b);
+          if (Number.isFinite(ad) && Number.isFinite(bd) && ad !== bd) return ad - bd;
+          return interestingScore(b) - interestingScore(a);
+        })
+        .slice(0, limit);
+    }
+
     function rankedSearchRules(limit = 80) {
       return [...searchRules.values()]
         .filter(rule => rule.stats.samples)
@@ -591,13 +632,15 @@
     }
 
     function renderResults() {
-      const ranked = rankedSearchRules();
+      const ranked = rankedDisplayRules();
       el.results.innerHTML = ranked.map(rule => {
         const s = rule.stats;
         const dist = distanceFromTarget(rule);
-        return `<tr>
+        const marker = rule.isReference ? " *" : "";
+        const title = rule.isReference ? `${rule.referenceName}; counts 0 through 8` : "counts 0 through 8";
+        return `<tr class="${rule.isReference ? "reference" : ""}">
           <td>${rule.number}</td>
-          <td title="counts 0 through 8">${rule.genome}</td>
+          <td title="${title}">${rule.genome}${marker}</td>
           <td>${s.samples}</td>
           <td>${Number.isFinite(dist) ? dist.toFixed(4) : "-"}</td>
           <td>${s.density.toFixed(4)}</td>
