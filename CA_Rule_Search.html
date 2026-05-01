@@ -142,6 +142,12 @@
     tr.reference {
       background: rgba(230, 190, 114, .08);
     }
+    tr.gap td {
+      color: var(--muted);
+      text-align: center;
+      font-style: italic;
+      background: #11161a;
+    }
     canvas {
       width: 100%;
       max-height: 48vh;
@@ -592,7 +598,7 @@
       return combined;
     }
 
-    function rankedDisplayRules(limit = 80) {
+    function sortedDisplayRules() {
       const merged = new Map();
       for (const rule of searchRules.values()) {
         if (!rule.stats.samples) continue;
@@ -615,29 +621,44 @@
           const bd = distanceFromTarget(b);
           if (Number.isFinite(ad) && Number.isFinite(bd) && ad !== bd) return ad - bd;
           return interestingScore(b) - interestingScore(a);
-        })
-        .slice(0, limit);
+        });
     }
 
-    function rankedSearchRules(limit = 80) {
-      return [...searchRules.values()]
-        .filter(rule => rule.stats.samples)
-        .sort((a, b) => {
-          const ad = distanceFromTarget(a);
-          const bd = distanceFromTarget(b);
-          if (Number.isFinite(ad) && Number.isFinite(bd) && ad !== bd) return ad - bd;
-          return interestingScore(b) - interestingScore(a);
-        })
-        .slice(0, limit);
+    function displayRows(limit = 255) {
+      const ranked = sortedDisplayRules();
+      const show = new Set();
+      for (let i = 0; i < Math.min(limit, ranked.length); i++) show.add(i);
+      ranked.forEach((rule, i) => {
+        if (rule.isReference) show.add(i);
+      });
+      const rows = [];
+      let omitted = 0;
+      for (let i = 0; i < ranked.length; i++) {
+        if (show.has(i)) {
+          if (omitted) {
+            rows.push({ type: "gap", count: omitted });
+            omitted = 0;
+          }
+          rows.push({ type: "rule", rule: ranked[i], rank: i + 1 });
+        } else {
+          omitted++;
+        }
+      }
+      if (omitted) rows.push({ type: "gap", count: omitted });
+      return rows;
     }
 
     function renderResults() {
-      const ranked = rankedDisplayRules();
-      el.results.innerHTML = ranked.map(rule => {
+      const rows = displayRows();
+      el.results.innerHTML = rows.map(row => {
+        if (row.type === "gap") {
+          return `<tr class="gap"><td colspan="10">... ${row.count} collected rule${row.count === 1 ? "" : "s"} omitted here ...</td></tr>`;
+        }
+        const rule = row.rule;
         const s = rule.stats;
         const dist = distanceFromTarget(rule);
         const marker = rule.isReference ? " *" : "";
-        const title = rule.isReference ? `${rule.referenceName}; counts 0 through 8` : "counts 0 through 8";
+        const title = rule.isReference ? `${rule.referenceName}; rank ${row.rank}; counts 0 through 8` : `rank ${row.rank}; counts 0 through 8`;
         return `<tr class="${rule.isReference ? "reference" : ""}">
           <td>${rule.number}</td>
           <td title="${title}">${rule.genome}${marker}</td>
