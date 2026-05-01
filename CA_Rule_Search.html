@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Life-like Rule Search</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #101214;
+      --panel: #181c20;
+      --line: #30363d;
+      --text: #e8edf2;
+      --muted: #9aa6b2;
+      --accent: #7ec8a5;
+      --warn: #e6be72;
+      --bad: #ee8b8b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", system-ui, sans-serif;
+      display: grid;
+      grid-template-columns: minmax(330px, 420px) 1fr;
+    }
+    aside {
+      border-right: 1px solid var(--line);
+      background: var(--panel);
+      padding: 16px;
+      overflow: auto;
+    }
+    main {
+      min-width: 0;
+      padding: 16px;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 14px;
+    }
+    h1 {
+      margin: 0 0 14px;
+      font-size: 22px;
+      font-weight: 650;
+      letter-spacing: 0;
+    }
+    h2 {
+      margin: 18px 0 10px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+    label, button, input, select {
+      font: inherit;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 112px;
+      gap: 10px;
+      align-items: center;
+      margin: 8px 0;
+    }
+    input, select, button {
+      color: var(--text);
+      background: #0f1317;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px 9px;
+    }
+    button {
+      cursor: pointer;
+      background: #16211d;
+    }
+    button.primary {
+      background: #193429;
+      border-color: #2b6a52;
+    }
+    button:disabled {
+      opacity: .45;
+      cursor: default;
+    }
+    .buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin: 12px 0;
+    }
+    .note {
+      color: var(--muted);
+      line-height: 1.45;
+      font-size: 13px;
+    }
+    .readout {
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #0d1013;
+      color: var(--muted);
+      font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.5;
+      min-height: 62px;
+      white-space: pre-wrap;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      background: #0d1013;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    th, td {
+      padding: 8px 9px;
+      border-bottom: 1px solid #232a31;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    th:first-child, td:first-child,
+    th:nth-child(2), td:nth-child(2) {
+      text-align: left;
+    }
+    th {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+      background: #14191e;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    tr.life {
+      background: rgba(126, 200, 165, .08);
+    }
+    canvas {
+      width: 100%;
+      max-height: 48vh;
+      aspect-ratio: 1;
+      image-rendering: pixelated;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #050607;
+    }
+    .visual {
+      display: grid;
+      grid-template-columns: minmax(240px, 420px) 1fr;
+      gap: 14px;
+      min-height: 0;
+    }
+    .panel {
+      min-width: 0;
+      overflow: auto;
+    }
+    @media (max-width: 860px) {
+      body { grid-template-columns: 1fr; }
+      aside { border-right: 0; border-bottom: 1px solid var(--line); }
+      .visual { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <aside>
+    <h1>Life-like Rule Search</h1>
+    <p class="note">Runs small repeated batches for a few known rules, then keeps looping and refining the cumulative statistics. Generation 0 is ignored.</p>
+
+    <h2>Run</h2>
+    <div class="buttons">
+      <button id="start" class="primary">Start</button>
+      <button id="stop">Stop</button>
+      <button id="step">One batch</button>
+      <button id="reset">Reset stats</button>
+    </div>
+    <div class="row"><label for="initializer">Initializer</label><select id="initializer">
+      <option value="neighborhood" selected>random neighborhoods</option>
+      <option value="soup">random soup</option>
+      <option value="mixed">mixed</option>
+    </select></div>
+    <div class="row"><label for="seed">Seed</label><input id="seed" type="number" value="12345"></div>
+    <div class="row"><label for="width">Grid size</label><input id="width" type="number" min="24" max="256" value="96"></div>
+    <div class="row"><label for="samplesPerBatch">Samples / batch</label><input id="samplesPerBatch" type="number" min="1" max="50" value="4"></div>
+    <div class="row"><label for="generations">Generations / sample</label><input id="generations" type="number" min="16" max="2000" value="240"></div>
+    <div class="row"><label for="chunkMs">Work chunk ms</label><input id="chunkMs" type="number" min="1" max="100" value="20"></div>
+
+    <h2>Seeding</h2>
+    <div class="row"><label for="soupDensity">Soup density %</label><input id="soupDensity" type="number" min="1" max="90" value="22"></div>
+    <div class="row"><label for="neighborhoods">Neighborhood placements</label><input id="neighborhoods" type="number" min="1" max="4000" value="600"></div>
+    <div class="row"><label for="branchChance">Branch chance %</label><input id="branchChance" type="number" min="0" max="100" value="35"></div>
+    <div class="row"><label for="branchDepth">Max branch depth</label><input id="branchDepth" type="number" min="0" max="20" value="4"></div>
+
+    <h2>Status</h2>
+    <div id="status" class="readout"></div>
+  </aside>
+
+  <main>
+    <div class="visual">
+      <canvas id="preview" width="96" height="96"></canvas>
+      <div class="panel">
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 112px">Rule</th>
+              <th style="width: 112px">B/S</th>
+              <th>Samples</th>
+              <th>Dist</th>
+              <th>Density</th>
+              <th>Activity</th>
+              <th>Wiggle</th>
+              <th>Extinct</th>
+              <th>Explode</th>
+              <th>Repeat</th>
+            </tr>
+          </thead>
+          <tbody id="results"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="readout" id="details"></div>
+  </main>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const el = {
+      start: $("start"), stop: $("stop"), step: $("step"), reset: $("reset"),
+      initializer: $("initializer"), seed: $("seed"), width: $("width"),
+      samplesPerBatch: $("samplesPerBatch"), generations: $("generations"),
+      chunkMs: $("chunkMs"), soupDensity: $("soupDensity"),
+      neighborhoods: $("neighborhoods"), branchChance: $("branchChance"),
+      branchDepth: $("branchDepth"), status: $("status"), results: $("results"),
+      details: $("details"), preview: $("preview")
+    };
+    const ctx = el.preview.getContext("2d");
+    const rules = [
+      makeRule("Life", "B3/S23", [3], [2, 3]),
+      makeRule("HighLife", "B36/S23", [3, 6], [2, 3]),
+      makeRule("Day & Night", "B3678/S34678", [3, 6, 7, 8], [3, 4, 6, 7, 8]),
+      makeRule("Seeds", "B2/S", [2], []),
+      makeRule("Maze", "B3/S12345", [3], [1, 2, 3, 4, 5])
+    ];
+    const offsets = [
+      [-1, -1], [0, -1], [1, -1],
+      [-1, 0],           [1, 0],
+      [-1, 1],  [0, 1],  [1, 1]
+    ];
+    let rng = mulberry32(12345);
+    let running = false;
+    let cursor = 0;
+    let batchIndex = 0;
+    let lastPreview = null;
+
+    function makeRule(name, text, birth, survival) {
+      return {
+        name, text,
+        birth: new Set(birth),
+        survival: new Set(survival),
+        stats: {
+          samples: 0, density: 0, activity: 0, wiggle: 0,
+          extinct: 0, explode: 0, repeat: 0, finalDensity: 0
+        }
+      };
+    }
+
+    function intInput(input, min, max, fallback) {
+      const n = Math.trunc(Number(input.value));
+      if (!Number.isFinite(n)) return fallback;
+      return Math.max(min, Math.min(max, n));
+    }
+
+    function numInput(input, min, max, fallback) {
+      const n = Number(input.value);
+      if (!Number.isFinite(n)) return fallback;
+      return Math.max(min, Math.min(max, n));
+    }
+
+    function mulberry32(seed) {
+      let a = seed >>> 0;
+      return function() {
+        a |= 0;
+        a = a + 0x6D2B79F5 | 0;
+        let t = Math.imul(a ^ a >>> 15, 1 | a);
+        t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+      };
+    }
+
+    function wrap(v, size) {
+      return (v % size + size) % size;
+    }
+
+    function idx(x, y, size) {
+      return wrap(x, size) + wrap(y, size) * size;
+    }
+
+    function setCell(board, x, y, size, value) {
+      board[idx(x, y, size)] = value ? 1 : 0;
+    }
+
+    function getCell(board, x, y, size) {
+      return board[idx(x, y, size)];
+    }
+
+    function randomInt(max) {
+      return Math.floor(rng() * max);
+    }
+
+    function chooseOffsets(count) {
+      const pool = offsets.slice();
+      for (let i = pool.length - 1; i > 0; i--) {
+        const j = randomInt(i + 1);
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+      }
+      return pool.slice(0, count);
+    }
+
+    function placeRandomNeighborhood(board, size, x, y, depth) {
+      setCell(board, x, y, size, rng() < 0.5);
+      const count = randomInt(offsets.length + 1);
+      const chosen = chooseOffsets(count);
+      for (const [dx, dy] of chosen) setCell(board, x + dx, y + dy, size, 1);
+      if (depth <= 0 || rng() * 100 >= numInput(el.branchChance, 0, 100, 35)) return;
+      const candidates = chosen.length ? chosen : offsets;
+      const [bdx, bdy] = candidates[randomInt(candidates.length)];
+      placeRandomNeighborhood(board, size, x + bdx, y + bdy, depth - 1);
+    }
+
+    function seedBoard(size, mode) {
+      const board = new Uint8Array(size * size);
+      if (mode === "mixed") mode = rng() < 0.5 ? "soup" : "neighborhood";
+      if (mode === "soup") {
+        const density = numInput(el.soupDensity, 1, 90, 22) / 100;
+        for (let i = 0; i < board.length; i++) board[i] = rng() < density ? 1 : 0;
+      } else {
+        const placements = intInput(el.neighborhoods, 1, 4000, 600);
+        const depth = intInput(el.branchDepth, 0, 20, 4);
+        for (let i = 0; i < placements; i++) {
+          placeRandomNeighborhood(board, size, randomInt(size), randomInt(size), depth);
+        }
+      }
+      return board;
+    }
+
+    function step(board, next, rule, size) {
+      let pop = 0;
+      let changed = 0;
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          let n = 0;
+          for (const [dx, dy] of offsets) n += getCell(board, x + dx, y + dy, size);
+          const was = getCell(board, x, y, size);
+          const alive = was ? rule.survival.has(n) : rule.birth.has(n);
+          const p = idx(x, y, size);
+          next[p] = alive ? 1 : 0;
+          if (alive) pop++;
+          if (alive !== !!was) changed++;
+        }
+      }
+      return { pop, changed };
+    }
+
+    function hashBoard(board) {
+      let h = 2166136261;
+      for (let i = 0; i < board.length; i++) {
+        h ^= board[i] ? (i + 1) : 0;
+        h = Math.imul(h, 16777619);
+      }
+      return h >>> 0;
+    }
+
+    function runSample(rule) {
+      const size = intInput(el.width, 24, 256, 96);
+      const gens = intInput(el.generations, 16, 2000, 240);
+      const mode = el.initializer.value;
+      let board = seedBoard(size, mode);
+      let next = new Uint8Array(size * size);
+      const area = size * size;
+      const history = new Set();
+      let densitySum = 0;
+      let activitySum = 0;
+      let wiggleSum = 0;
+      let signChanges = 0;
+      let prevPop = null;
+      let prevDeltaSign = 0;
+      let extinct = false;
+      let exploded = false;
+      let repeated = false;
+      let finalDensity = 0;
+
+      for (let g = 1; g <= gens; g++) {
+        const r = step(board, next, rule, size);
+        const density = r.pop / area;
+        const activity = r.changed / area;
+        densitySum += density;
+        activitySum += activity;
+        if (prevPop !== null) {
+          const delta = r.pop - prevPop;
+          const sign = Math.sign(delta);
+          wiggleSum += Math.abs(delta) / area;
+          if (sign && prevDeltaSign && sign !== prevDeltaSign) signChanges++;
+          if (sign) prevDeltaSign = sign;
+        }
+        prevPop = r.pop;
+        if (r.pop === 0) extinct = true;
+        if (density > 0.70) exploded = true;
+        if (g > 24) {
+          const h = hashBoard(next);
+          if (history.has(h)) repeated = true;
+          history.add(h);
+          if (history.size > 64) {
+            history.clear();
+            history.add(h);
+          }
+        }
+        [board, next] = [next, board];
+        finalDensity = density;
+      }
+      lastPreview = board.slice();
+      return {
+        density: densitySum / gens,
+        activity: activitySum / gens,
+        wiggle: wiggleSum / Math.max(1, gens - 1) + signChanges / gens * 0.02,
+        extinct: extinct ? 1 : 0,
+        explode: exploded ? 1 : 0,
+        repeat: repeated ? 1 : 0,
+        finalDensity
+      };
+    }
+
+    function addStats(rule, sample) {
+      const s = rule.stats;
+      const n = s.samples;
+      s.samples++;
+      for (const key of ["density", "activity", "wiggle", "extinct", "explode", "repeat", "finalDensity"]) {
+        s[key] = (s[key] * n + sample[key]) / s.samples;
+      }
+    }
+
+    function runBatchFor(rule) {
+      const count = intInput(el.samplesPerBatch, 1, 50, 4);
+      for (let i = 0; i < count; i++) addStats(rule, runSample(rule));
+    }
+
+    function featureVector(rule) {
+      const s = rule.stats;
+      return [s.density, s.activity, s.wiggle, s.extinct, s.explode, s.repeat, s.finalDensity];
+    }
+
+    function distanceFromLife(rule) {
+      const life = rules[0];
+      if (!life.stats.samples || !rule.stats.samples) return rule === life ? 0 : Infinity;
+      const a = featureVector(rule);
+      const b = featureVector(life);
+      const weights = [2.2, 2.0, 1.3, 1.7, 1.7, 1.0, 1.2];
+      let sum = 0;
+      for (let i = 0; i < a.length; i++) {
+        const d = a[i] - b[i];
+        sum += d * d * weights[i];
+      }
+      return Math.sqrt(sum);
+    }
+
+    function renderPreview() {
+      const size = intInput(el.width, 24, 256, 96);
+      if (!lastPreview || lastPreview.length !== size * size) return;
+      el.preview.width = size;
+      el.preview.height = size;
+      const image = ctx.createImageData(size, size);
+      for (let i = 0; i < lastPreview.length; i++) {
+        const p = i * 4;
+        const alive = lastPreview[i];
+        image.data[p] = alive ? 126 : 5;
+        image.data[p + 1] = alive ? 200 : 6;
+        image.data[p + 2] = alive ? 165 : 7;
+        image.data[p + 3] = 255;
+      }
+      ctx.putImageData(image, 0, 0);
+    }
+
+    function renderResults() {
+      const ranked = rules.slice().sort((a, b) => distanceFromLife(a) - distanceFromLife(b));
+      el.results.innerHTML = ranked.map(rule => {
+        const s = rule.stats;
+        const dist = distanceFromLife(rule);
+        return `<tr class="${rule.name === "Life" ? "life" : ""}">
+          <td title="${rule.name}">${rule.name}</td>
+          <td>${rule.text}</td>
+          <td>${s.samples}</td>
+          <td>${Number.isFinite(dist) ? dist.toFixed(4) : "-"}</td>
+          <td>${s.density.toFixed(4)}</td>
+          <td>${s.activity.toFixed(4)}</td>
+          <td>${s.wiggle.toFixed(4)}</td>
+          <td>${(s.extinct * 100).toFixed(1)}%</td>
+          <td>${(s.explode * 100).toFixed(1)}%</td>
+          <td>${(s.repeat * 100).toFixed(1)}%</td>
+        </tr>`;
+      }).join("");
+      const total = rules.reduce((a, r) => a + r.stats.samples, 0);
+      el.status.textContent =
+        `state: ${running ? "running" : "stopped"}\n` +
+        `batch loops: ${batchIndex}\n` +
+        `total samples: ${total}\n` +
+        `current rule: ${rules[cursor]?.name || rules[0].name}\n` +
+        `keys: Space start/stop, Escape stop`;
+      el.details.textContent =
+        `Distance is measured against Conway Life's current cumulative profile.\n` +
+        `Metrics: mean density, mean activity, population wiggle, extinction, explosion, repeat detection, final density.\n` +
+        `This first version uses Moore radius-1 offsets only; the vector-neighborhood generalization can replace the offset list without changing the stats loop.`;
+      renderPreview();
+    }
+
+    function workLoop(deadlineStart) {
+      const budget = intInput(el.chunkMs, 1, 100, 20);
+      const started = performance.now();
+      while (running && performance.now() - started < budget) {
+        runBatchFor(rules[cursor]);
+        cursor = (cursor + 1) % rules.length;
+        if (cursor === 0) batchIndex++;
+      }
+      renderResults();
+      if (running) requestAnimationFrame(workLoop);
+    }
+
+    function start() {
+      if (running) return;
+      running = true;
+      renderResults();
+      requestAnimationFrame(workLoop);
+    }
+
+    function stop() {
+      running = false;
+      renderResults();
+    }
+
+    function resetStats() {
+      stop();
+      rng = mulberry32(intInput(el.seed, 0, 0xffffffff, 12345));
+      cursor = 0;
+      batchIndex = 0;
+      lastPreview = null;
+      for (const rule of rules) {
+        rule.stats = { samples: 0, density: 0, activity: 0, wiggle: 0, extinct: 0, explode: 0, repeat: 0, finalDensity: 0 };
+      }
+      ctx.clearRect(0, 0, el.preview.width, el.preview.height);
+      renderResults();
+    }
+
+    el.start.addEventListener("click", start);
+    el.stop.addEventListener("click", stop);
+    el.step.addEventListener("click", () => {
+      runBatchFor(rules[cursor]);
+      cursor = (cursor + 1) % rules.length;
+      if (cursor === 0) batchIndex++;
+      renderResults();
+    });
+    el.reset.addEventListener("click", resetStats);
+    el.seed.addEventListener("change", resetStats);
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        stop();
+      } else if (event.code === "Space") {
+        event.preventDefault();
+        running ? stop() : start();
+      }
+    });
+    resetStats();
+  </script>
+</body>
+</html>
