@@ -650,7 +650,7 @@
 
     function renderResults() {
       const rows = displayRows();
-      el.results.innerHTML = rows.map(row => {
+      el.results.innerHTML = rows.length ? rows.map(row => {
         if (row.type === "gap") {
           return `<tr class="gap"><td colspan="10">... ${row.count} collected rule${row.count === 1 ? "" : "s"} omitted here ...</td></tr>`;
         }
@@ -671,7 +671,7 @@
           <td>${(s.explode * 100).toFixed(1)}%</td>
           <td>${(s.repeat * 100).toFixed(1)}%</td>
         </tr>`;
-      }).join("");
+      }).join("") : `<tr class="gap"><td colspan="10">${statusMessage || "No data loaded."}</td></tr>`;
       const referenceSamples = referenceRules.reduce((a, r) => a + r.stats.samples, 0);
       const searchSamples = [...searchRules.values()].reduce((a, r) => a + r.stats.samples, 0);
       const phase = referenceIndex < referenceRules.length ? "calibration refinement" : "SATD genome search";
@@ -740,11 +740,13 @@
 
     function stop() {
       running = false;
+      saveState(false);
+      statusMessage = "stopped and saved";
       renderResults();
     }
 
-    function resetStats() {
-      stop();
+    function clearStats() {
+      running = false;
       rng = mulberry32(intInput(el.seed, 0, 0xffffffff, 12345));
       referenceIndex = 0;
       referenceSweeps = 0;
@@ -759,6 +761,16 @@
       }
       ctx.clearRect(0, 0, el.preview.width, el.preview.height);
       renderResults();
+    }
+
+    function resetStats() {
+      const hasData = referenceRules.some(rule => rule.stats.samples) || searchRules.size > 0 || lastSaveInfo;
+      if (hasData && !confirm("Reset stats and unload the current search data? Saved browser data will remain until overwritten, but current in-page progress will be cleared.")) {
+        statusMessage = "reset canceled";
+        renderResults();
+        return;
+      }
+      clearStats();
     }
 
     function compactStats(s) {
@@ -814,11 +826,11 @@
       if (report || !running) renderResults();
     }
 
-    function loadState() {
-      stop();
+    function loadState({ auto = false } = {}) {
+      running = false;
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) {
-        statusMessage = "no saved data found";
+        statusMessage = auto ? "No data loaded." : "no saved data found";
         renderResults();
         return;
       }
@@ -849,9 +861,9 @@
           bytes: raw.length
         };
         referenceIndex = 0;
-        statusMessage = `loaded ${searchRules.size} searched genomes from ${new Date(payload.savedAt).toLocaleString()}; calibration refinement queued`;
+        statusMessage = `${auto ? "auto-loaded" : "loaded"} ${searchRules.size} searched genomes from ${new Date(payload.savedAt).toLocaleString()}; calibration refinement queued`;
       } catch (error) {
-        statusMessage = `load failed: ${error.message}`;
+        statusMessage = auto ? `No data loaded. ${error.message}` : `load failed: ${error.message}`;
       }
       renderResults();
     }
@@ -866,7 +878,9 @@
       renderResults();
     });
     el.reset.addEventListener("click", resetStats);
-    el.seed.addEventListener("change", resetStats);
+    el.seed.addEventListener("change", () => {
+      resetStats();
+    });
     document.addEventListener("keydown", event => {
       if (event.key === "Escape") {
         event.preventDefault();
@@ -876,7 +890,8 @@
         running ? stop() : start();
       }
     });
-    resetStats();
+    clearStats();
+    loadState({ auto: true });
   </script>
 </body>
 </html>
