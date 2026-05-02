@@ -151,6 +151,16 @@
       font-style: italic;
       background: #11161a;
     }
+    td a {
+      color: inherit;
+      display: block;
+      text-decoration: none;
+    }
+    td a:hover {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
     canvas {
       width: 100%;
       max-height: 48vh;
@@ -369,6 +379,28 @@
       let gene = "";
       for (let i = highest; i >= 0; i--) gene += genome[i] || "?";
       return { gene, highest };
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function ruleRunnerHref(rule, compactGeneText) {
+      const params = new URLSearchParams();
+      params.set("number", String(rule.number));
+      params.set("genome", rule.genome);
+      if (compactGeneText) params.set("compact", compactGeneText);
+      if (rule.isReference && rule.referenceName) params.set("name", rule.referenceName);
+      return `CA_Rule_Player.html?${params.toString()}`;
+    }
+
+    function ruleLink(rule, compactGeneText, label) {
+      const href = escapeHtml(ruleRunnerHref(rule, compactGeneText));
+      return `<a href="${href}" target="_blank" rel="noopener">${escapeHtml(label)}</a>`;
     }
 
     function getSearchRule(number) {
@@ -729,11 +761,14 @@
         const marker = rule.isReference ? " *" : "";
         const compact = compactGene(rule.genome);
         const info = rule.isReference ? rule.referenceName : "";
+        const numberCell = ruleLink(rule, compact.gene, rule.number);
+        const genomeCell = ruleLink(rule, compact.gene, `${compact.gene}${marker}`);
+        const infoCell = info ? ruleLink(rule, compact.gene, info) : "";
         return `<tr class="${rule.isReference ? "reference" : ""}">
           <td>${row.rank}</td>
-          <td>${rule.number}</td>
-          <td>${compact.gene}${marker}</td>
-          <td>${info}</td>
+          <td>${numberCell}</td>
+          <td>${genomeCell}</td>
+          <td>${infoCell}</td>
           <td>${s.samples}</td>
           <td>${affinity.score.toFixed(4)}</td>
           <td>${affinity.nearestName}${Number.isFinite(affinity.nearestDistance) ? " " + affinity.nearestDistance.toFixed(3) : ""}</td>
