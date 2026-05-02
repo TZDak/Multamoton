@@ -371,10 +371,6 @@
       return { gene, highest };
     }
 
-    function compactGeneRange(highest) {
-      return highest === 0 ? "0; >=1 => S" : `${highest}..0; >=${highest + 1} => S`;
-    }
-
     function getSearchRule(number) {
       let rule = searchRules.get(number);
       if (!rule) {
@@ -732,10 +728,7 @@
         const affinity = referenceAffinity(rule);
         const marker = rule.isReference ? " *" : "";
         const compact = compactGene(rule.genome);
-        const info = [
-          rule.isReference ? rule.referenceName : "",
-          `${compactGeneRange(compact.highest)}`
-        ].filter(Boolean).join("; ");
+        const info = rule.isReference ? rule.referenceName : "";
         return `<tr class="${rule.isReference ? "reference" : ""}">
           <td>${row.rank}</td>
           <td>${rule.number}</td>
@@ -773,9 +766,8 @@
       el.details.textContent =
         `Score is summed reference affinity: for each reference, weight / (1 + behavioral distance). Higher is closer to one or more references.\n` +
         `Nearest shows the closest named reference and its raw distance. The ranking target selector is kept for comparison/export work, but this table now sorts by score.\n` +
-        `Genome display is compact SATD, big-endian by neighbor count: rightmost is 0 neighbors; omitted higher counts default to S.\n` +
-        `A range like 6..0 means the displayed gene covers neighbor counts 6 down through 0; >=7 => S means 7 or more neighbors stagnate by default.\n` +
-        `S=stagnate/NOP, A=activate, T=toggle, D=deactivate. Info shows the named reference, when any, and the compact genome count range.\n` +
+        `Genome format: compact SATD, big-endian by neighbor count. The rightmost character applies to 0 active neighbors, the next character left applies to 1, and so on.\n` +
+        `Omitted higher neighbor counts default to S. S=stagnate/NOP, A=activate, T=toggle, D=deactivate. Info shows only the named reference, when any.\n` +
         `Conway Life has reference weight 5; each other reference rule has weight 1.\n` +
         `Metrics: mean density, mean activity, population wiggle, extinction, explosion, repeat detection, final density.\n` +
         `This version still uses a finite wrapped square grid with Moore radius-1 offsets; the vector-neighborhood generalization can replace the offset list later.`;
