@@ -198,9 +198,14 @@
     }
     .feedback {
       display: grid;
-      grid-template-rows: auto 1fr;
+      grid-template-rows: auto auto 1fr;
       gap: 12px;
       min-height: 0;
+    }
+    .feedback-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
     }
     .feedback-grid {
       display: grid;
@@ -333,6 +338,9 @@
     </div>
     <div id="feedbackView" class="view feedback hidden">
       <div class="readout" id="feedbackNote"></div>
+      <div class="feedback-actions">
+        <button id="feedbackSkip">Can't decide which one's best</button>
+      </div>
       <div class="feedback-grid" id="feedbackGrid"></div>
     </div>
     <div class="readout" id="details"></div>
@@ -349,7 +357,7 @@
       branchDepth: $("branchDepth"), status: $("status"), results: $("results"),
       details: $("details"), preview: $("preview"), listTab: $("listTab"), feedbackTab: $("feedbackTab"),
       listView: $("listView"), feedbackView: $("feedbackView"), feedbackGrid: $("feedbackGrid"),
-      feedbackNote: $("feedbackNote")
+      feedbackNote: $("feedbackNote"), feedbackSkip: $("feedbackSkip")
     };
     const ctx = el.preview.getContext("2d");
     const STORAGE_KEY = "multomaton-rule-search-v2";
@@ -994,6 +1002,12 @@
       renderResults();
     }
 
+    function skipFeedbackSet() {
+      statusMessage = "feedback set replaced without a vote";
+      buildFeedbackSet();
+      renderResults();
+    }
+
     function showView(view) {
       activeView = view;
       el.listView.classList.toggle("hidden", view !== "list");
@@ -1345,6 +1359,7 @@
     el.targetProfile.addEventListener("change", renderResults);
     el.listTab.addEventListener("click", () => showView("list"));
     el.feedbackTab.addEventListener("click", () => showView("feedback"));
+    el.feedbackSkip.addEventListener("click", skipFeedbackSet);
     el.step.addEventListener("click", () => {
       runOneWorkUnit();
       renderResults();
