@@ -36,7 +36,7 @@
       min-width: 0;
       padding: 16px;
       display: grid;
-      grid-template-rows: auto 1fr;
+      grid-template-rows: auto auto 1fr;
       gap: 14px;
     }
     h1 {
@@ -87,6 +87,19 @@
       grid-template-columns: 1fr 1fr;
       gap: 8px;
       margin: 12px 0;
+    }
+    .tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .tabs button {
+      min-width: 112px;
+    }
+    .tabs button.active {
+      background: #193429;
+      border-color: #2b6a52;
+      color: var(--text);
     }
     .note {
       color: var(--muted);
@@ -180,6 +193,46 @@
       min-width: 0;
       overflow: auto;
     }
+    .view.hidden {
+      display: none;
+    }
+    .feedback {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 12px;
+      min-height: 0;
+    }
+    .feedback-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 12px;
+      align-content: start;
+    }
+    .feedback-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #0d1013;
+      padding: 10px;
+      cursor: pointer;
+    }
+    .feedback-card:hover {
+      border-color: #2b6a52;
+      background: #101913;
+    }
+    .feedback-card canvas {
+      width: 100%;
+      max-height: none;
+      border-radius: 6px;
+    }
+    .feedback-label {
+      margin-top: 8px;
+      color: var(--muted);
+      font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
     @media (max-width: 860px) {
       body { grid-template-columns: 1fr; }
       aside { border-right: 0; border-bottom: 1px solid var(--line); }
@@ -249,7 +302,11 @@
   </aside>
 
   <main>
-    <div class="visual">
+    <div class="tabs">
+      <button id="listTab" class="active">List view</button>
+      <button id="feedbackTab">Feedback view</button>
+    </div>
+    <div id="listView" class="view visual">
       <canvas id="preview" width="96" height="96"></canvas>
       <div class="panel">
         <table>
@@ -274,6 +331,10 @@
         </table>
       </div>
     </div>
+    <div id="feedbackView" class="view feedback hidden">
+      <div class="readout" id="feedbackNote"></div>
+      <div class="feedback-grid" id="feedbackGrid"></div>
+    </div>
     <div class="readout" id="details"></div>
   </main>
 
@@ -286,7 +347,9 @@
       chunkMs: $("chunkMs"), soupDensity: $("soupDensity"),
       neighborhoods: $("neighborhoods"), branchChance: $("branchChance"),
       branchDepth: $("branchDepth"), status: $("status"), results: $("results"),
-      details: $("details"), preview: $("preview")
+      details: $("details"), preview: $("preview"), listTab: $("listTab"), feedbackTab: $("feedbackTab"),
+      listView: $("listView"), feedbackView: $("feedbackView"), feedbackGrid: $("feedbackGrid"),
+      feedbackNote: $("feedbackNote")
     };
     const ctx = el.preview.getContext("2d");
     const STORAGE_KEY = "multomaton-rule-search-v2";
@@ -331,6 +394,10 @@
     let searchLoops = 0;
     let lastPreview = null;
     let searchRules = new Map();
+    let searchWorkUnits = 0;
+    let feedbackVotes = new Map();
+    let feedbackItems = [];
+    let activeView = "list";
     let statusMessage = "";
     let lastSaveInfo = null;
 
@@ -344,6 +411,18 @@
 
     function makeReferenceRule(name, text, birth, survival, id, referenceWeight = 1) {
       return makeRule(genomeToNumber(genomeFromBS(birth, survival)), genomeFromBS(birth, survival), id, name, referenceWeight);
+    }
+
+    function makeGenomeReferenceRule(number, genome, name = "Unknown", id = `unknown-${number}`) {
+      const rule = makeRule(number, genome, id, name, 1);
+      rule.userReference = true;
+      return rule;
+    }
+
+    function removeUserReferences() {
+      for (let i = referenceRules.length - 1; i >= 0; i--) {
+        if (referenceRules[i].userReference) referenceRules.splice(i, 1);
+      }
     }
 
     function genomeFromBS(birth, survival) {
@@ -410,6 +489,47 @@
         searchRules.set(number, rule);
       }
       return rule;
+    }
+
+    function randomUntestedNumber() {
+      for (let tries = 0; tries < 96; tries++) {
+        const candidate = randomInt(MAX_GENOME_RULES);
+        if (!searchRules.has(candidate)) return candidate;
+      }
+      for (let i = 0; i < MAX_GENOME_RULES; i++) {
+        const candidate = (searchCursor + i) % MAX_GENOME_RULES;
+        if (!searchRules.has(candidate)) return candidate;
+      }
+      return null;
+    }
+
+    function leastTestedSearchRule() {
+      const untested = randomUntestedNumber();
+      if (untested !== null) {
+        searchCursor = (untested + 1) % MAX_GENOME_RULES;
+        return getSearchRule(untested);
+      }
+      let leastSamples = Infinity;
+      for (const rule of searchRules.values()) {
+        if (rule.stats.samples < leastSamples) leastSamples = rule.stats.samples;
+      }
+      let chosen = null;
+      let seen = 0;
+      for (const rule of searchRules.values()) {
+        if (rule.stats.samples !== leastSamples) continue;
+        seen++;
+        if (rng() < 1 / seen) chosen = rule;
+      }
+      return chosen || getSearchRule(randomInt(MAX_GENOME_RULES));
+    }
+
+    function minimumSearchSamples() {
+      if (searchRules.size < MAX_GENOME_RULES) return 0;
+      let least = Infinity;
+      for (const rule of searchRules.values()) {
+        if (rule.stats.samples < least) least = rule.stats.samples;
+      }
+      return Number.isFinite(least) ? least : 0;
     }
 
     function intInput(input, min, max, fallback) {
@@ -679,6 +799,212 @@
       ctx.putImageData(image, 0, 0);
     }
 
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = randomInt(i + 1);
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    function localRandomInt(localRng, max) {
+      return Math.floor(localRng() * max);
+    }
+
+    function makeFeedbackBoard(size, localRng) {
+      const board = new Uint8Array(size * size);
+      let mode = el.initializer.value;
+      if (mode === "mixed") mode = localRng() < 0.5 ? "soup" : "neighborhood";
+      const set = (x, y, value) => board[idx(x, y, size)] = value ? 1 : 0;
+      const chooseLocalOffsets = count => {
+        const pool = offsets.slice();
+        for (let i = pool.length - 1; i > 0; i--) {
+          const j = localRandomInt(localRng, i + 1);
+          [pool[i], pool[j]] = [pool[j], pool[i]];
+        }
+        return pool.slice(0, count);
+      };
+      const place = (x, y, depth) => {
+        set(x, y, localRng() < 0.5);
+        const chosen = chooseLocalOffsets(localRandomInt(localRng, offsets.length + 1));
+        for (const [dx, dy] of chosen) set(x + dx, y + dy, 1);
+        if (depth <= 0 || localRng() * 100 >= numInput(el.branchChance, 0, 100, 35)) return;
+        const candidates = chosen.length ? chosen : offsets;
+        const [bdx, bdy] = candidates[localRandomInt(localRng, candidates.length)];
+        place(x + bdx, y + bdy, depth - 1);
+      };
+      if (mode === "soup") {
+        const density = numInput(el.soupDensity, 1, 90, 22) / 100;
+        for (let i = 0; i < board.length; i++) board[i] = localRng() < density ? 1 : 0;
+      } else {
+        const placements = Math.max(1, Math.floor(intInput(el.neighborhoods, 1, 4000, 600) * size * size / (96 * 96)));
+        const depth = intInput(el.branchDepth, 0, 20, 4);
+        for (let i = 0; i < placements; i++) place(localRandomInt(localRng, size), localRandomInt(localRng, size), depth);
+      }
+      return board;
+    }
+
+    function chooseFeedbackRules() {
+      const choices = [];
+      const refs = referenceRules.filter(rule => rule.stats.samples);
+      choices.push(refs.length ? refs[randomInt(refs.length)] : referenceRules[randomInt(referenceRules.length)]);
+      const ranked = sortedDisplayRules()
+        .filter(rule => !choices.some(existing => existing.number === rule.number) && rule.stats.samples)
+        .slice(0, 512);
+      while (choices.length < 3 && ranked.length) {
+        const i = randomInt(ranked.length);
+        choices.push(ranked.splice(i, 1)[0]);
+      }
+      while (choices.length < 3) {
+        const rule = leastTestedSearchRule();
+        if (!choices.some(existing => existing.number === rule.number)) choices.push(rule);
+      }
+      return choices;
+    }
+
+    function buildFeedbackSet() {
+      const size = Math.max(48, Math.min(128, intInput(el.width, 24, 256, 96)));
+      const rules = chooseFeedbackRules();
+      const items = [];
+      for (const rule of rules) {
+        for (let i = 0; i < 3; i++) {
+          const seed = randomInt(0xffffffff);
+          const localRng = mulberry32(seed);
+          items.push({
+            rule,
+            board: makeFeedbackBoard(size, localRng),
+            next: new Uint8Array(size * size),
+            size,
+            seed,
+            generation: 0,
+            population: 0
+          });
+        }
+      }
+      feedbackItems = shuffle(items);
+      el.feedbackGrid.innerHTML = feedbackItems.map((item, i) =>
+        `<div class="feedback-card" data-index="${i}">
+          <canvas width="${item.size}" height="${item.size}"></canvas>
+          <div class="feedback-label">Option ${i + 1}</div>
+        </div>`
+      ).join("");
+      el.feedbackGrid.querySelectorAll(".feedback-card").forEach(card => {
+        card.addEventListener("click", () => chooseFeedbackItem(Number(card.dataset.index)));
+      });
+      renderFeedback();
+    }
+
+    function stepFeedbackItem(item) {
+      let pop = 0;
+      const genome = item.rule.genome;
+      for (let y = 0; y < item.size; y++) {
+        for (let x = 0; x < item.size; x++) {
+          let n = 0;
+          for (const [dx, dy] of offsets) n += getCell(item.board, x + dx, y + dy, item.size);
+          const was = getCell(item.board, x, y, item.size);
+          const alive = applyAction(genome[n], was);
+          item.next[idx(x, y, item.size)] = alive ? 1 : 0;
+          if (alive) pop++;
+        }
+      }
+      [item.board, item.next] = [item.next, item.board];
+      item.generation++;
+      item.population = pop;
+    }
+
+    function drawFeedbackItem(item, canvas) {
+      const localCtx = canvas.getContext("2d");
+      const image = localCtx.createImageData(item.size, item.size);
+      for (let i = 0; i < item.board.length; i++) {
+        const p = i * 4;
+        if (item.board[i]) {
+          image.data[p] = 126;
+          image.data[p + 1] = 200;
+          image.data[p + 2] = 165;
+          image.data[p + 3] = 255;
+        } else {
+          image.data[p] = 3;
+          image.data[p + 1] = 4;
+          image.data[p + 2] = 5;
+          image.data[p + 3] = 255;
+        }
+      }
+      localCtx.putImageData(image, 0, 0);
+    }
+
+    function renderFeedback() {
+      if (activeView !== "feedback") return;
+      const cards = [...el.feedbackGrid.querySelectorAll(".feedback-card")];
+      cards.forEach((card, i) => {
+        const item = feedbackItems[i];
+        if (!item) return;
+        drawFeedbackItem(item, card.querySelector("canvas"));
+      });
+      el.feedbackNote.textContent =
+        `Click the running example you like best. This view shows three rules, with three seeded runs per rule, shuffled into nine tiles.\n` +
+        `One rule is always from the current reference examples. A liked non-reference rule can be promoted as Unknown if it scores at least as well as the median reference, or if it receives repeated feedback.`;
+    }
+
+    function feedbackFrame() {
+      if (activeView === "feedback" && feedbackItems.length) {
+        for (const item of feedbackItems) stepFeedbackItem(item);
+        renderFeedback();
+      }
+      requestAnimationFrame(feedbackFrame);
+    }
+
+    function promoteFeedbackRule(rule) {
+      if (referenceRules.some(ref => ref.number === rule.number)) return false;
+      const promoted = makeGenomeReferenceRule(rule.number, rule.genome, "Unknown", `unknown-${rule.number}`);
+      promoted.stats = { ...rule.stats };
+      referenceRules.push(promoted);
+      referenceIndex = 0;
+      statusMessage = `promoted rule ${rule.number} as Unknown reference`;
+      saveState(false);
+      return true;
+    }
+
+    function shouldPromoteFeedbackRule(rule, votes) {
+      if (votes >= 2) return true;
+      if (!rule.stats.samples) return false;
+      const candidateScore = referenceAffinity(rule).score;
+      const refScores = referenceRules
+        .filter(ref => ref.stats.samples)
+        .map(ref => referenceAffinity(ref).score)
+        .sort((a, b) => a - b);
+      if (!refScores.length) return true;
+      return candidateScore >= refScores[Math.floor(refScores.length / 2)];
+    }
+
+    function chooseFeedbackItem(index) {
+      const item = feedbackItems[index];
+      if (!item) return;
+      const current = (feedbackVotes.get(item.rule.number) || 0) + 1;
+      feedbackVotes.set(item.rule.number, current);
+      if (referenceRules.some(ref => ref.number === item.rule.number)) {
+        saveState(false);
+        statusMessage = `feedback recorded for reference ${item.rule.name || item.rule.number}`;
+      } else if (shouldPromoteFeedbackRule(item.rule, current) && promoteFeedbackRule(item.rule)) {
+        statusMessage = `feedback promoted rule ${item.rule.number} as Unknown`;
+      } else {
+        saveState(false);
+        statusMessage = `feedback recorded for rule ${item.rule.number}; ${current} vote${current === 1 ? "" : "s"}`;
+      }
+      buildFeedbackSet();
+      renderResults();
+    }
+
+    function showView(view) {
+      activeView = view;
+      el.listView.classList.toggle("hidden", view !== "list");
+      el.feedbackView.classList.toggle("hidden", view !== "feedback");
+      el.listTab.classList.toggle("active", view === "list");
+      el.feedbackTab.classList.toggle("active", view === "feedback");
+      if (view === "feedback" && !feedbackItems.length) buildFeedbackSet();
+      renderResults();
+      renderFeedback();
+    }
+
     function interestingScore(rule) {
       const s = rule.stats;
       if (!s.samples) return 0;
@@ -785,14 +1111,15 @@
       const phase = referenceIndex < referenceRules.length ? "calibration refinement" : "SATD genome search";
       const currentReference = referenceRules[referenceIndex];
       const saveLine = lastSaveInfo
-        ? `last save: ${lastSaveInfo.ok ? "ok" : "failed"}; cursor ${lastSaveInfo.searchCursor}; genomes ${lastSaveInfo.searchCount}; ${lastSaveInfo.time}${lastSaveInfo.bytes ? "; " + lastSaveInfo.bytes + " bytes" : ""}\n`
+        ? `last save: ${lastSaveInfo.ok ? "ok" : "failed"}; work ${lastSaveInfo.searchWorkUnits || 0}; genomes ${lastSaveInfo.searchCount}; ${lastSaveInfo.time}${lastSaveInfo.bytes ? "; " + lastSaveInfo.bytes + " bytes" : ""}\n`
         : "";
       el.status.textContent =
         `state: ${running ? "running" : "stopped"}\n` +
         `phase: ${phase}\n` +
         `reference: ${Math.min(referenceIndex, referenceRules.length)} / ${referenceRules.length}${currentReference ? " (" + currentReference.name + ")" : ""}\n` +
         `reference refinements: ${referenceSweeps}\n` +
-        `search cursor: ${searchCursor} / ${MAX_GENOME_RULES - 1}\n` +
+        `searched genomes: ${searchRules.size} / ${MAX_GENOME_RULES}\n` +
+        `search work units: ${searchWorkUnits}\n` +
         `search loops: ${searchLoops}\n` +
         `reference samples: ${referenceSamples}; search samples: ${searchSamples}\n` +
         saveLine +
@@ -803,6 +1130,7 @@
         `Nearest shows the closest named reference and its raw distance. The ranking target selector is kept for comparison/export work, but this table now sorts by score.\n` +
         `Genome format: compact SATD, big-endian by neighbor count. The rightmost character applies to 0 active neighbors, the next character left applies to 1, and so on.\n` +
         `Omitted higher neighbor counts default to S. S=stagnate/NOP, A=activate, T=toggle, D=deactivate. Info shows only the named reference, when any.\n` +
+        `Search mode: after each calibration refinement, rules are chosen randomly from the least-tested SATD genomes. Autosave runs after calibration, after each least-tested layer, every 64 search work units, and on Stop.\n` +
         `Conway Life has reference weight 5; each other reference rule has weight 1.\n` +
         `Metrics: mean density, mean activity, population wiggle, extinction, explosion, repeat detection, final density.\n` +
         `This version still uses a finite wrapped square grid with Moore radius-1 offsets; the vector-neighborhood generalization can replace the offset list later.`;
@@ -816,19 +1144,26 @@
         if (referenceIndex === referenceRules.length) {
           referenceSweeps++;
           saveState(false);
-          statusMessage = `calibration refinement ${referenceSweeps} complete; SATD search ${searchLoops ? "resumed" : "started"}`;
+          statusMessage = `calibration refinement ${referenceSweeps} complete; random least-tested SATD search ${searchLoops ? "resumed" : "started"}`;
         }
         return;
       }
-      runBatchFor(getSearchRule(searchCursor));
-      searchCursor = (searchCursor + 1) % MAX_GENOME_RULES;
-      if (searchCursor === 0) {
+      const beforeComplete = searchRules.size >= MAX_GENOME_RULES;
+      const beforeMinSamples = minimumSearchSamples();
+      runBatchFor(leastTestedSearchRule());
+      searchWorkUnits++;
+      const afterComplete = searchRules.size >= MAX_GENOME_RULES;
+      const completedSearchLayer = !beforeComplete && afterComplete;
+      const completedRetestLayer = beforeComplete && minimumSearchSamples() > beforeMinSamples;
+      if (completedSearchLayer || completedRetestLayer) {
         searchLoops++;
         referenceIndex = 0;
         saveState(false);
-        statusMessage = `full SATD pass ${searchLoops} complete; refining reference profile`;
+        statusMessage = completedSearchLayer
+          ? `all SATD genomes have at least one sample; refining reference profile`
+          : `least-tested SATD layer ${searchLoops} complete; refining reference profile`;
       }
-      if ((searchCursor % 64) === 0) saveState(false);
+      if ((searchWorkUnits % 64) === 0) saveState(false);
     }
 
     function workLoop(deadlineStart) {
@@ -862,7 +1197,11 @@
       referenceSweeps = 0;
       searchCursor = 0;
       searchLoops = 0;
+      searchWorkUnits = 0;
       searchRules = new Map();
+      feedbackVotes = new Map();
+      feedbackItems = [];
+      removeUserReferences();
       statusMessage = "";
       lastSaveInfo = null;
       lastPreview = null;
@@ -905,6 +1244,11 @@
         referenceSweeps,
         searchCursor,
         searchLoops,
+        searchWorkUnits,
+        feedbackVotes: [...feedbackVotes.entries()],
+        unknownReferences: referenceRules
+          .filter(rule => rule.userReference)
+          .map(rule => [rule.number, rule.genome, rule.id, rule.name, compactStats(rule.stats)]),
         references: referenceRules.map(rule => [rule.id, compactStats(rule.stats)]),
         search: [...searchRules.values()]
           .filter(rule => rule.stats.samples)
@@ -915,18 +1259,18 @@
         localStorage.setItem(STORAGE_KEY, encoded);
         lastSaveInfo = {
           ok: true,
-          searchCursor: payload.searchCursor,
+          searchWorkUnits: payload.searchWorkUnits,
           searchCount: payload.search.length,
           time: savedAt.toLocaleTimeString(),
           bytes: encoded.length
         };
         statusMessage = report
           ? `saved ${payload.search.length} searched genomes`
-          : `autosaved at cursor ${payload.searchCursor}`;
+          : `autosaved after ${payload.searchWorkUnits} search work units`;
       } catch (error) {
         lastSaveInfo = {
           ok: false,
-          searchCursor,
+          searchWorkUnits,
           searchCount: searchRules.size,
           time: savedAt.toLocaleTimeString(),
           bytes: 0
@@ -947,16 +1291,31 @@
       try {
         const payload = JSON.parse(raw);
         if (!payload || payload.version !== 2) throw new Error("saved data version does not match this page");
+        feedbackItems = [];
         referenceIndex = Math.max(0, Math.min(referenceRules.length, Number(payload.referenceIndex) || 0));
         referenceSweeps = Math.max(0, Number(payload.referenceSweeps) || 0);
         searchCursor = Math.max(0, Math.min(MAX_GENOME_RULES - 1, Number(payload.searchCursor) || 0));
         searchLoops = Math.max(0, Number(payload.searchLoops) || 0);
+        searchWorkUnits = Math.max(0, Number(payload.searchWorkUnits) || 0);
         rng = mulberry32(Number(payload.seed) || intInput(el.seed, 0, 0xffffffff, 12345));
+        removeUserReferences();
+        for (const saved of payload.unknownReferences || []) {
+          const [number, genome, id, name, stats] = saved;
+          const n = Math.max(0, Math.min(MAX_GENOME_RULES - 1, Number(number) || 0));
+          if (typeof genome !== "string" || !/^[SATD]{9}$/.test(genome)) continue;
+          const rule = makeGenomeReferenceRule(n, genome, name || "Unknown", id || `unknown-${n}`);
+          rule.stats = expandStats(stats);
+          referenceRules.push(rule);
+        }
         for (const rule of referenceRules) rule.stats = blankStats();
         for (const [id, stats] of payload.references || []) {
           const rule = referenceRules.find(r => r.id === id);
           if (rule) rule.stats = expandStats(stats);
         }
+        feedbackVotes = new Map((payload.feedbackVotes || []).map(([number, votes]) => [
+          Math.max(0, Math.min(MAX_GENOME_RULES - 1, Number(number) || 0)),
+          Math.max(0, Number(votes) || 0)
+        ]));
         searchRules = new Map();
         for (const [number, stats] of payload.search || []) {
           const n = Math.max(0, Math.min(MAX_GENOME_RULES - 1, Number(number) || 0));
@@ -965,13 +1324,14 @@
         }
         lastSaveInfo = {
           ok: true,
-          searchCursor,
+          searchWorkUnits,
           searchCount: searchRules.size,
           time: new Date(payload.savedAt).toLocaleTimeString(),
           bytes: raw.length
         };
         referenceIndex = 0;
         statusMessage = `${auto ? "auto-loaded" : "loaded"} ${searchRules.size} searched genomes from ${new Date(payload.savedAt).toLocaleString()}; calibration refinement queued`;
+        if (activeView === "feedback") buildFeedbackSet();
       } catch (error) {
         statusMessage = auto ? `No data loaded. ${error.message}` : `load failed: ${error.message}`;
       }
@@ -983,6 +1343,8 @@
     el.save.addEventListener("click", () => saveState());
     el.load.addEventListener("click", loadState);
     el.targetProfile.addEventListener("change", renderResults);
+    el.listTab.addEventListener("click", () => showView("list"));
+    el.feedbackTab.addEventListener("click", () => showView("feedback"));
     el.step.addEventListener("click", () => {
       runOneWorkUnit();
       renderResults();
@@ -1002,6 +1364,7 @@
     });
     clearStats();
     loadState({ auto: true });
+    requestAnimationFrame(feedbackFrame);
   </script>
 </body>
 </html>
