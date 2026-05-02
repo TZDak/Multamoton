@@ -220,9 +220,19 @@
       padding: 10px;
       cursor: pointer;
     }
+    .feedback-card.unavailable {
+      border-color: #415046;
+      background: #111714;
+      cursor: default;
+      opacity: .82;
+    }
     .feedback-card:hover {
       border-color: #2b6a52;
       background: #101913;
+    }
+    .feedback-card.unavailable:hover {
+      border-color: #415046;
+      background: #111714;
     }
     .feedback-card canvas {
       width: 100%;
@@ -406,6 +416,7 @@
     let searchWorkUnits = 0;
     let feedbackVotes = new Map();
     let feedbackItems = [];
+    let feedbackRuleUnavailableSince = new Map();
     let activeView = "list";
     let statusMessage = "";
     let lastSaveInfo = null;
@@ -871,26 +882,49 @@
       return choices;
     }
 
+    function feedbackRuleKey(rule) {
+      return String(rule.number);
+    }
+
+    function chooseReplacementFeedbackRule(excludedNumbers) {
+      const excluded = new Set(excludedNumbers);
+      const ranked = sortedDisplayRules()
+        .filter(rule => !excluded.has(rule.number) && rule.stats.samples)
+        .slice(0, 512);
+      if (ranked.length) return ranked[randomInt(ranked.length)];
+      for (let tries = 0; tries < 256; tries++) {
+        const rule = leastTestedSearchRule();
+        if (!excluded.has(rule.number)) return rule;
+      }
+      return leastTestedSearchRule();
+    }
+
+    function makeFeedbackItem(rule, size) {
+      const seed = randomInt(0xffffffff);
+      const localRng = mulberry32(seed);
+      return {
+        rule,
+        board: makeFeedbackBoard(size, localRng),
+        next: new Uint8Array(size * size),
+        size,
+        seed,
+        generation: 0,
+        population: 0,
+        unavailable: false
+      };
+    }
+
     function buildFeedbackSet() {
       const size = Math.max(48, Math.min(128, intInput(el.width, 24, 256, 96)));
       const rules = chooseFeedbackRules();
       const items = [];
       for (const rule of rules) {
         for (let i = 0; i < 3; i++) {
-          const seed = randomInt(0xffffffff);
-          const localRng = mulberry32(seed);
-          items.push({
-            rule,
-            board: makeFeedbackBoard(size, localRng),
-            next: new Uint8Array(size * size),
-            size,
-            seed,
-            generation: 0,
-            population: 0
-          });
+          items.push(makeFeedbackItem(rule, size));
         }
       }
       feedbackItems = shuffle(items);
+      feedbackRuleUnavailableSince = new Map();
       el.feedbackGrid.innerHTML = feedbackItems.map((item, i) =>
         `<div class="feedback-card" data-index="${i}">
           <canvas width="${item.size}" height="${item.size}"></canvas>
@@ -919,11 +953,23 @@
       [item.board, item.next] = [item.next, item.board];
       item.generation++;
       item.population = pop;
+      item.unavailable = pop === 0 || pop === item.size * item.size;
     }
 
     function drawFeedbackItem(item, canvas) {
       const localCtx = canvas.getContext("2d");
       const image = localCtx.createImageData(item.size, item.size);
+      if (item.unavailable) {
+        for (let i = 0; i < item.board.length; i++) {
+          const p = i * 4;
+          image.data[p] = 64;
+          image.data[p + 1] = 103;
+          image.data[p + 2] = 86;
+          image.data[p + 3] = 255;
+        }
+        localCtx.putImageData(image, 0, 0);
+        return;
+      }
       for (let i = 0; i < item.board.length; i++) {
         const p = i * 4;
         if (item.board[i]) {
@@ -941,12 +987,43 @@
       localCtx.putImageData(image, 0, 0);
     }
 
+    function recycleUnavailableFeedbackRules() {
+      const now = performance.now();
+      const groups = new Map();
+      for (const item of feedbackItems) {
+        const key = feedbackRuleKey(item.rule);
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(item);
+      }
+      for (const [key, items] of groups) {
+        if (!items.length || !items.every(item => item.unavailable)) {
+          feedbackRuleUnavailableSince.delete(key);
+          continue;
+        }
+        const since = feedbackRuleUnavailableSince.get(key) || now;
+        feedbackRuleUnavailableSince.set(key, since);
+        if (now - since < 3000) continue;
+        const excluded = feedbackItems.map(item => item.rule.number);
+        const replacement = chooseReplacementFeedbackRule(excluded);
+        const size = items[0].size;
+        for (let i = 0; i < feedbackItems.length; i++) {
+          if (feedbackRuleKey(feedbackItems[i].rule) === key) {
+            feedbackItems[i] = makeFeedbackItem(replacement, size);
+          }
+        }
+        feedbackRuleUnavailableSince.delete(key);
+        statusMessage = `replaced unavailable rule ${key} with ${replacement.number}`;
+      }
+    }
+
     function renderFeedback() {
       if (activeView !== "feedback") return;
       const cards = [...el.feedbackGrid.querySelectorAll(".feedback-card")];
       cards.forEach((card, i) => {
         const item = feedbackItems[i];
         if (!item) return;
+        card.classList.toggle("unavailable", !!item.unavailable);
+        card.querySelector(".feedback-label").textContent = item.unavailable ? "Unavailable" : `Option ${i + 1}`;
         drawFeedbackItem(item, card.querySelector("canvas"));
       });
       el.feedbackNote.textContent =
@@ -957,6 +1034,7 @@
     function feedbackFrame() {
       if (activeView === "feedback" && feedbackItems.length) {
         for (const item of feedbackItems) stepFeedbackItem(item);
+        recycleUnavailableFeedbackRules();
         renderFeedback();
       }
       requestAnimationFrame(feedbackFrame);
@@ -987,7 +1065,7 @@
 
     function chooseFeedbackItem(index) {
       const item = feedbackItems[index];
-      if (!item) return;
+      if (!item || item.unavailable) return;
       const current = (feedbackVotes.get(item.rule.number) || 0) + 1;
       feedbackVotes.set(item.rule.number, current);
       if (referenceRules.some(ref => ref.number === item.rule.number)) {
@@ -1216,6 +1294,7 @@
       searchRules = new Map();
       feedbackVotes = new Map();
       feedbackItems = [];
+      feedbackRuleUnavailableSince = new Map();
       removeUserReferences();
       statusMessage = "";
       lastSaveInfo = null;
@@ -1307,6 +1386,7 @@
         const payload = JSON.parse(raw);
         if (!payload || payload.version !== 2) throw new Error("saved data version does not match this page");
         feedbackItems = [];
+        feedbackRuleUnavailableSince = new Map();
         referenceIndex = Math.max(0, Math.min(referenceRules.length, Number(payload.referenceIndex) || 0));
         referenceSweeps = Math.max(0, Number(payload.referenceSweeps) || 0);
         searchCursor = Math.max(0, Math.min(MAX_GENOME_RULES - 1, Number(payload.searchCursor) || 0));
