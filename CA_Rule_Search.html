@@ -209,7 +209,7 @@
     }
     .feedback-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      grid-template-columns: repeat(4, minmax(150px, 1fr));
       gap: 12px;
       align-content: start;
     }
@@ -242,6 +242,7 @@
       body { grid-template-columns: 1fr; }
       aside { border-right: 0; border-bottom: 1px solid var(--line); }
       .visual { grid-template-columns: 1fr; }
+      .feedback-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
     }
   </style>
 </head>
@@ -859,11 +860,11 @@
       const ranked = sortedDisplayRules()
         .filter(rule => !choices.some(existing => existing.number === rule.number) && rule.stats.samples)
         .slice(0, 512);
-      while (choices.length < 3 && ranked.length) {
+      while (choices.length < 4 && ranked.length) {
         const i = randomInt(ranked.length);
         choices.push(ranked.splice(i, 1)[0]);
       }
-      while (choices.length < 3) {
+      while (choices.length < 4) {
         const rule = leastTestedSearchRule();
         if (!choices.some(existing => existing.number === rule.number)) choices.push(rule);
       }
@@ -949,7 +950,7 @@
         drawFeedbackItem(item, card.querySelector("canvas"));
       });
       el.feedbackNote.textContent =
-        `Click the running example you like best. This view shows three rules, with three seeded runs per rule, shuffled into nine tiles.\n` +
+        `Click the running example you like best. This view shows four rules, with three seeded runs per rule, shuffled into twelve tiles.\n` +
         `One rule is always from the current reference examples. A liked non-reference rule can be promoted as Unknown if it scores at least as well as the median reference, or if it receives repeated feedback.`;
     }
 
