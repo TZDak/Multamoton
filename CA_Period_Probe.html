@@ -259,6 +259,7 @@
     let results = [];
     let currentRuleIndex = 0;
     let currentSize = 4;
+    let currentProbeLine = "";
 
     function blankStats() {
       return { samples: 0, density: 0, activity: 0, wiggle: 0, extinct: 0, explode: 0, repeat: 0, finalDensity: 0 };
@@ -563,7 +564,11 @@
       }
     }
 
-    function probeRuleSize(rule, n, options) {
+    function pauseForPaint() {
+      return new Promise(resolve => setTimeout(resolve, 0));
+    }
+
+    async function probeRuleSize(rule, n, options) {
       const started = performance.now();
       const exhaustive = n === 4 || (n === 5 && options.full5);
       const states = exhaustive ? exhaustiveCanonicalStates(n) : null;
@@ -572,6 +577,7 @@
       let witness = "";
       let exhausted = false;
       const deadline = started + options.timeBudget * 1000;
+      let lastPaint = performance.now();
       while (performance.now() < deadline) {
         let state;
         if (exhaustive) {
@@ -592,7 +598,14 @@
           witness = "0x" + state.toString(16);
         }
         if (p >= options.threshold) break;
+        if (performance.now() - lastPaint > 50) {
+          currentProbeLine = `current probe: rule ${rule.number}, ${n}×${n}, tested ${tested}, max period ${maxPeriod}`;
+          renderStatus();
+          lastPaint = performance.now();
+          await pauseForPaint();
+        }
       }
+      currentProbeLine = "";
       return {
         number: rule.number,
         compact: rule.compact,
@@ -616,7 +629,8 @@
         `rules queued: ${queue.length}\n` +
         `rule: ${Math.min(currentRuleIndex + 1, queue.length)} / ${queue.length}\n` +
         `board size: ${currentSize}×${currentSize}\n` +
-        `results: ${done} / ${total || 0}`;
+        `results: ${done} / ${total || 0}` +
+        `${currentProbeLine ? "\n" + currentProbeLine : ""}`;
     }
 
     function renderResults() {
@@ -659,7 +673,7 @@
       renderResults();
     }
 
-    function runOne() {
+    async function runOne() {
       if (currentRuleIndex >= queue.length) {
         running = false;
         renderResults();
@@ -673,7 +687,10 @@
         timeBudget: numInput(el.timeBudget, 0.05, 60, 2),
         full5: el.full5.value === "yes"
       };
-      results.push(probeRuleSize(rule, currentSize, options));
+      currentProbeLine = `current probe: rule ${rule.number}, ${currentSize}×${currentSize}, starting`;
+      renderStatus();
+      await pauseForPaint();
+      results.push(await probeRuleSize(rule, currentSize, options));
       currentSize++;
       if (currentSize > 8) {
         currentSize = 4;
@@ -682,9 +699,9 @@
       renderResults();
     }
 
-    function loop() {
+    async function loop() {
       if (!running) return;
-      runOne();
+      await runOne();
       if (running) setTimeout(loop, 0);
     }
 
