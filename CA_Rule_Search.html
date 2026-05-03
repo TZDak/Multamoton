@@ -269,6 +269,7 @@
       <button id="reset">Reset stats</button>
       <button id="save">Save data</button>
       <button id="load">Load data</button>
+      <button id="periodProbe">Period probe</button>
     </div>
     <div class="row"><label for="initializer">Initializer</label><select id="initializer">
       <option value="neighborhood" selected>random neighborhoods</option>
@@ -361,7 +362,7 @@
     const $ = id => document.getElementById(id);
     const el = {
       start: $("start"), stop: $("stop"), step: $("step"), reset: $("reset"), save: $("save"), load: $("load"),
-      initializer: $("initializer"), targetProfile: $("targetProfile"), seed: $("seed"), width: $("width"),
+      periodProbe: $("periodProbe"), initializer: $("initializer"), targetProfile: $("targetProfile"), seed: $("seed"), width: $("width"),
       samplesPerBatch: $("samplesPerBatch"), generations: $("generations"),
       chunkMs: $("chunkMs"), soupDensity: $("soupDensity"),
       neighborhoods: $("neighborhoods"), branchChance: $("branchChance"),
@@ -1437,6 +1438,7 @@
     el.stop.addEventListener("click", stop);
     el.save.addEventListener("click", () => saveState());
     el.load.addEventListener("click", loadState);
+    el.periodProbe.addEventListener("click", () => window.open("CA_Period_Probe.html", "_blank", "noopener"));
     el.targetProfile.addEventListener("change", renderResults);
     el.listTab.addEventListener("click", () => showView("list"));
     el.feedbackTab.addEventListener("click", () => showView("feedback"));

@@ -1,0 +1,734 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Small-Board Period Probe</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #101214;
+      --panel: #181c20;
+      --line: #30363d;
+      --text: #e8edf2;
+      --muted: #9aa6b2;
+      --accent: #7ec8a5;
+      --warn: #e6be72;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", system-ui, sans-serif;
+      display: grid;
+      grid-template-columns: minmax(330px, 430px) 1fr;
+    }
+    aside {
+      border-right: 1px solid var(--line);
+      background: var(--panel);
+      padding: 16px;
+      overflow: auto;
+    }
+    main {
+      min-width: 0;
+      padding: 16px;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 12px;
+    }
+    h1 {
+      margin: 0 0 12px;
+      font-size: 22px;
+      letter-spacing: 0;
+    }
+    h2 {
+      margin: 18px 0 10px;
+      color: var(--muted);
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+    label, button, input, select {
+      font: inherit;
+    }
+    input, select, button {
+      color: var(--text);
+      background: #0f1317;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px 9px;
+    }
+    button {
+      cursor: pointer;
+      background: #16211d;
+    }
+    button.primary {
+      background: #193429;
+      border-color: #2b6a52;
+    }
+    button:disabled {
+      opacity: .45;
+      cursor: default;
+    }
+    .buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin: 12px 0;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 118px;
+      gap: 10px;
+      align-items: center;
+      margin: 8px 0;
+    }
+    .note {
+      color: var(--muted);
+      line-height: 1.45;
+      font-size: 13px;
+    }
+    .readout {
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #0d1013;
+      color: var(--muted);
+      font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.5;
+      min-height: 62px;
+      white-space: pre-wrap;
+    }
+    .panel {
+      min-width: 0;
+      overflow: auto;
+    }
+    table {
+      width: max-content;
+      border-collapse: collapse;
+      table-layout: auto;
+      background: #0d1013;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    th, td {
+      padding: 7px 8px;
+      border-bottom: 1px solid #232a31;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    th:first-child, td:first-child,
+    th:nth-child(2), td:nth-child(2),
+    th:nth-child(3), td:nth-child(3),
+    th:nth-child(4), td:nth-child(4) {
+      text-align: left;
+    }
+    th {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+      background: #14191e;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    tr.reference {
+      background: rgba(230, 190, 114, .08);
+    }
+    tr.pass {
+      background: rgba(126, 200, 165, .07);
+    }
+    td a {
+      color: inherit;
+      text-decoration: none;
+    }
+    td a:hover {
+      color: var(--accent);
+      text-decoration: underline;
+    }
+    @media (max-width: 860px) {
+      body { grid-template-columns: 1fr; }
+      aside { border-right: 0; border-bottom: 1px solid var(--line); }
+    }
+  </style>
+</head>
+<body>
+  <aside>
+    <h1>Small-Board Period Probe</h1>
+    <p class="note">Reads saved data from CA_Rule_Search.html and probes listed rules on wrapped Moore boards.</p>
+
+    <h2>Run</h2>
+    <div class="buttons">
+      <button id="load" class="primary">Load saved data</button>
+      <button id="start">Start</button>
+      <button id="stop">Stop</button>
+      <button id="clear">Clear results</button>
+      <button id="download">Download CSV</button>
+    </div>
+    <div class="row"><label for="source">Rules to probe</label><select id="source">
+      <option value="visible-ish" selected>top + references</option>
+      <option value="references">references only</option>
+      <option value="searched">searched only</option>
+      <option value="all">all saved</option>
+    </select></div>
+    <div class="row"><label for="limit">Max rules</label><input id="limit" type="number" min="1" max="262144" value="512"></div>
+    <div class="row"><label for="threshold">Period threshold</label><input id="threshold" type="number" min="2" max="10000" value="8"></div>
+    <div class="row"><label for="samples">Samples for 5×5+</label><input id="samples" type="number" min="1" max="1000000" value="2000"></div>
+    <div class="row"><label for="maxSteps">Max steps / pattern</label><input id="maxSteps" type="number" min="8" max="100000" value="10000"></div>
+    <div class="row"><label for="timeBudget">Seconds / rule-size</label><input id="timeBudget" type="number" min="0.05" max="60" step="0.05" value="2"></div>
+    <div class="row"><label for="full5">Exhaustive 5×5</label><select id="full5">
+      <option value="no" selected>No</option>
+      <option value="yes">Yes, slow</option>
+    </select></div>
+    <div class="row"><label for="seed">Random seed</label><input id="seed" type="number" value="12345"></div>
+
+    <h2>Status</h2>
+    <div id="status" class="readout"></div>
+    <p class="note">4×4 uses exhaustive canonical balanced states. Larger sizes use balanced random states unless exhaustive 5×5 is enabled.</p>
+  </aside>
+
+  <main>
+    <div id="details" class="readout"></div>
+    <div class="panel">
+      <table>
+        <thead>
+          <tr>
+            <th>Number</th>
+            <th>Genome</th>
+            <th>Info</th>
+            <th>Status</th>
+            <th>n</th>
+            <th>Tested</th>
+            <th>Max Period</th>
+            <th>Passed</th>
+            <th>Witness</th>
+            <th>Seconds</th>
+          </tr>
+        </thead>
+        <tbody id="results"></tbody>
+      </table>
+    </div>
+  </main>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const el = {
+      load: $("load"), start: $("start"), stop: $("stop"), clear: $("clear"), download: $("download"),
+      source: $("source"), limit: $("limit"), threshold: $("threshold"), samples: $("samples"),
+      maxSteps: $("maxSteps"), timeBudget: $("timeBudget"), full5: $("full5"), seed: $("seed"),
+      status: $("status"), details: $("details"), results: $("results")
+    };
+    const STORAGE_KEY = "multomaton-rule-search-v2";
+    const ACTIONS = ["S", "A", "T", "D"];
+    const GENOME_LENGTH = 9;
+    const MAX_GENOME_RULES = 4 ** GENOME_LENGTH;
+    const referenceDefs = [
+      ["Life", "B3/S23", [3], [2, 3], "life", 5],
+      ["HighLife", "B36/S23", [3, 6], [2, 3], "highlife", 1],
+      ["Day & Night", "B3678/S34678", [3, 6, 7, 8], [3, 4, 6, 7, 8], "daynight", 1],
+      ["Seeds", "B2/S", [2], [], "seeds", 1],
+      ["Maze", "B3/S12345", [3], [1, 2, 3, 4, 5], "maze", 1],
+      ["Diamoeba", "B35678/S5678", [3, 5, 6, 7, 8], [5, 6, 7, 8], "diamoeba", 1],
+      ["Replicator", "B1357/S1357", [1, 3, 5, 7], [1, 3, 5, 7], "replicator", 1],
+      ["Morley", "B368/S245", [3, 6, 8], [2, 4, 5], "morley", 1],
+      ["2x2", "B36/S125", [3, 6], [1, 2, 5], "2x2", 1],
+      ["EightLife", "B3/S238", [3], [2, 3, 8], "eightlife", 1],
+      ["Pedestrian", "B38/S23", [3, 8], [2, 3], "pedestrian", 1],
+      ["Long Life", "B345/S5", [3, 4, 5], [5], "longlife", 1],
+      ["34 Life", "B34/S34", [3, 4], [3, 4], "34life", 1],
+      ["Mazectric", "B3/S1234", [3], [1, 2, 3, 4], "mazectric", 1],
+      ["Amoeba", "B357/S1358", [3, 5, 7], [1, 3, 5, 8], "amoeba", 1],
+      ["Pseudo Life", "B357/S238", [3, 5, 7], [2, 3, 8], "pseudolife", 1],
+      ["Coral", "B3/S45678", [3], [4, 5, 6, 7, 8], "coral", 1],
+      ["Coagulations", "B378/S235678", [3, 7, 8], [2, 3, 5, 6, 7, 8], "coagulations", 1],
+      ["Stains", "B3678/S235678", [3, 6, 7, 8], [2, 3, 5, 6, 7, 8], "stains", 1],
+      ["Serviettes", "B234/S", [2, 3, 4], [], "serviettes", 1],
+      ["Life without Death", "B3/S012345678", [3], [0, 1, 2, 3, 4, 5, 6, 7, 8], "lifewithoutdeath", 1],
+      ["Gnarl", "B1/S1", [1], [1], "gnarl", 1],
+      ["Live Free or Die", "B2/S0", [2], [0], "livefreeordie", 1]
+    ];
+    let running = false;
+    let rng = mulberry32(12345);
+    let rules = [];
+    let queue = [];
+    let results = [];
+    let currentRuleIndex = 0;
+    let currentSize = 4;
+
+    function blankStats() {
+      return { samples: 0, density: 0, activity: 0, wiggle: 0, extinct: 0, explode: 0, repeat: 0, finalDensity: 0 };
+    }
+
+    function expandStats(values) {
+      const stats = blankStats();
+      if (!Array.isArray(values)) return stats;
+      ["samples", "density", "activity", "wiggle", "extinct", "explode", "repeat", "finalDensity"]
+        .forEach((key, i) => stats[key] = Number(values[i]) || 0);
+      return stats;
+    }
+
+    function genomeFromBS(birth, survival) {
+      const genome = Array(GENOME_LENGTH).fill("D");
+      for (const count of survival) if (count >= 0 && count < GENOME_LENGTH) genome[count] = "S";
+      for (const count of birth) if (count >= 0 && count < GENOME_LENGTH) genome[count] = "A";
+      return genome.join("");
+    }
+
+    function genomeFromNumber(number) {
+      let n = number;
+      let genome = "";
+      for (let i = 0; i < GENOME_LENGTH; i++) {
+        genome += ACTIONS[n & 3];
+        n = Math.floor(n / 4);
+      }
+      return genome;
+    }
+
+    function genomeToNumber(genome) {
+      let place = 1;
+      let number = 0;
+      for (let i = 0; i < GENOME_LENGTH; i++) {
+        number += Math.max(0, ACTIONS.indexOf(genome[i] || "S")) * place;
+        place *= 4;
+      }
+      return number;
+    }
+
+    function compactGene(genome) {
+      let highest = GENOME_LENGTH - 1;
+      while (highest > 0 && genome[highest] === "S") highest--;
+      let gene = "";
+      for (let i = highest; i >= 0; i--) gene += genome[i] || "?";
+      return gene;
+    }
+
+    function featureVectorFromStats(s) {
+      return [s.density, s.activity, s.wiggle, s.extinct, s.explode, s.repeat, s.finalDensity];
+    }
+
+    function vectorDistance(a, b) {
+      const weights = [2.2, 2.0, 1.3, 1.7, 1.7, 1.0, 1.2];
+      let sum = 0;
+      for (let i = 0; i < a.length; i++) {
+        const d = a[i] - b[i];
+        sum += d * d * weights[i];
+      }
+      return Math.sqrt(sum);
+    }
+
+    function referenceAffinity(rule, refs) {
+      if (!rule.stats.samples) return 0;
+      let score = 0;
+      const a = featureVectorFromStats(rule.stats);
+      for (const ref of refs) {
+        if (!ref.stats.samples) continue;
+        score += (ref.referenceWeight || 1) / (1 + vectorDistance(a, featureVectorFromStats(ref.stats)));
+      }
+      return score;
+    }
+
+    function interestingScore(rule) {
+      const s = rule.stats;
+      if (!s.samples) return 0;
+      const nonDegenerate = (1 - s.extinct) * (1 - s.explode);
+      const activityBand = Math.max(0, 1 - Math.abs(s.activity - 0.12) / 0.24);
+      const densityBand = Math.max(0, 1 - Math.abs(s.density - 0.20) / 0.40);
+      return nonDegenerate * (0.4 * activityBand + 0.3 * densityBand + 0.3 * Math.min(1, s.wiggle * 20));
+    }
+
+    function makeReferenceRules(payload) {
+      const refs = referenceDefs.map(([name, text, birth, survival, id, weight]) => ({
+        number: genomeToNumber(genomeFromBS(birth, survival)),
+        genome: genomeFromBS(birth, survival),
+        id,
+        name,
+        referenceWeight: weight,
+        stats: blankStats(),
+        isReference: true
+      }));
+      for (const saved of payload.unknownReferences || []) {
+        const [number, genome, id, name, stats] = saved;
+        if (typeof genome !== "string" || !/^[SATD]{9}$/.test(genome)) continue;
+        refs.push({
+          number: Number(number),
+          genome,
+          id: id || `unknown-${number}`,
+          name: name || "Unknown",
+          referenceWeight: 1,
+          stats: expandStats(stats),
+          isReference: true
+        });
+      }
+      for (const [id, stats] of payload.references || []) {
+        const rule = refs.find(ref => ref.id === id);
+        if (rule) rule.stats = expandStats(stats);
+      }
+      return refs;
+    }
+
+    function loadSavedData() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) throw new Error("No saved CA_Rule_Search data found in localStorage.");
+      const payload = JSON.parse(raw);
+      if (!payload || payload.version !== 2) throw new Error("Saved data version does not match this probe.");
+      const refs = makeReferenceRules(payload);
+      const merged = new Map();
+      for (const ref of refs) merged.set(ref.number, { ...ref, info: ref.name, status: ref.name === "Unknown" ? "feedback_unknown" : "named_reference" });
+      for (const [number, stats] of payload.search || []) {
+        const n = Number(number);
+        const existing = merged.get(n);
+        if (existing) {
+          existing.stats = combineStats(existing.stats, expandStats(stats));
+        } else {
+          merged.set(n, {
+            number: n,
+            genome: genomeFromNumber(n),
+            info: "",
+            status: "searched",
+            referenceWeight: 0,
+            stats: expandStats(stats),
+            isReference: false
+          });
+        }
+      }
+      const all = [...merged.values()];
+      for (const rule of all) {
+        rule.compact = compactGene(rule.genome);
+        rule.score = referenceAffinity(rule, refs);
+        rule.interesting = interestingScore(rule);
+      }
+      all.sort((a, b) => {
+        if (a.isReference && !b.isReference) return -1;
+        if (!a.isReference && b.isReference) return 1;
+        if (b.score !== a.score) return b.score - a.score;
+        return b.interesting - a.interesting;
+      });
+      return { payload, refs, all };
+    }
+
+    function combineStats(a, b) {
+      const samples = a.samples + b.samples;
+      if (!samples) return blankStats();
+      const out = blankStats();
+      out.samples = samples;
+      for (const key of ["density", "activity", "wiggle", "extinct", "explode", "repeat", "finalDensity"]) {
+        out[key] = (a[key] * a.samples + b[key] * b.samples) / samples;
+      }
+      return out;
+    }
+
+    function selectRules() {
+      const loaded = loadSavedData();
+      const source = el.source.value;
+      const limit = intInput(el.limit, 1, MAX_GENOME_RULES, 512);
+      let selected = loaded.all;
+      if (source === "references") selected = loaded.all.filter(rule => rule.isReference);
+      if (source === "searched") selected = loaded.all.filter(rule => !rule.isReference);
+      if (source === "visible-ish") {
+        const refs = loaded.all.filter(rule => rule.isReference);
+        const top = loaded.all.filter(rule => !rule.isReference).slice(0, Math.max(0, limit - refs.length));
+        selected = refs.concat(top);
+      } else {
+        selected = selected.slice(0, limit);
+      }
+      return { selected, loaded };
+    }
+
+    function mulberry32(seed) {
+      let a = seed >>> 0;
+      return function() {
+        a |= 0;
+        a = a + 0x6D2B79F5 | 0;
+        let t = Math.imul(a ^ a >>> 15, 1 | a);
+        t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+      };
+    }
+
+    function intInput(input, min, max, fallback) {
+      const n = Math.trunc(Number(input.value));
+      if (!Number.isFinite(n)) return fallback;
+      return Math.max(min, Math.min(max, n));
+    }
+
+    function numInput(input, min, max, fallback) {
+      const n = Number(input.value);
+      if (!Number.isFinite(n)) return fallback;
+      return Math.max(min, Math.min(max, n));
+    }
+
+    function stepState(n, state, genome) {
+      let out = 0;
+      for (let r = 0; r < n; r++) {
+        const rowBase = r * n;
+        for (let c = 0; c < n; c++) {
+          let count = 0;
+          for (let dr = -1; dr <= 1; dr++) {
+            const rr = (r + dr + n) % n;
+            const rrBase = rr * n;
+            for (let dc = -1; dc <= 1; dc++) {
+              if (dr || dc) {
+                const cc = (c + dc + n) % n;
+                count += Number((state >> BigInt(rrBase + cc)) & 1n);
+              }
+            }
+          }
+          const was = Number((state >> BigInt(rowBase + c)) & 1n);
+          const action = genome[count];
+          const alive = action === "S" ? was : action === "A" ? 1 : action === "T" ? 1 - was : 0;
+          if (alive) out |= 1n << BigInt(rowBase + c);
+        }
+      }
+      return out;
+    }
+
+    function transformState(n, state, kind) {
+      let out = 0n;
+      for (let r = 0; r < n; r++) {
+        for (let c = 0; c < n; c++) {
+          let rr, cc;
+          if (kind === 0) [rr, cc] = [r, c];
+          else if (kind === 1) [rr, cc] = [c, n - 1 - r];
+          else if (kind === 2) [rr, cc] = [n - 1 - r, n - 1 - c];
+          else if (kind === 3) [rr, cc] = [n - 1 - c, r];
+          else if (kind === 4) [rr, cc] = [r, n - 1 - c];
+          else if (kind === 5) [rr, cc] = [n - 1 - r, c];
+          else if (kind === 6) [rr, cc] = [c, r];
+          else [rr, cc] = [n - 1 - c, n - 1 - r];
+          if ((state >> BigInt(rr * n + cc)) & 1n) out |= 1n << BigInt(r * n + c);
+        }
+      }
+      return out;
+    }
+
+    function canonicalState(n, state) {
+      let best = state;
+      for (let i = 1; i < 8; i++) {
+        const t = transformState(n, state, i);
+        if (t < best) best = t;
+      }
+      return best;
+    }
+
+    function bitCountBig(value) {
+      let n = value;
+      let count = 0;
+      while (n) {
+        count += Number(n & 1n);
+        n >>= 1n;
+      }
+      return count;
+    }
+
+    function balanced(state, cells, minEach) {
+      const ones = bitCountBig(state);
+      return ones >= minEach && cells - ones >= minEach;
+    }
+
+    function randomBalancedState(n) {
+      const cells = n * n;
+      const words = Math.ceil(cells / 30);
+      while (true) {
+        let state = 0n;
+        for (let i = 0; i < words; i++) {
+          state = (state << 30n) | BigInt(Math.floor(rng() * (1 << 30)));
+        }
+        state &= (1n << BigInt(cells)) - 1n;
+        if (balanced(state, cells, n)) return state;
+      }
+    }
+
+    function period(n, state, genome, maxSteps) {
+      const seen = new Map([[state.toString(), 0]]);
+      let current = state;
+      for (let t = 1; t <= maxSteps; t++) {
+        current = stepState(n, current, genome);
+        const key = current.toString();
+        if (seen.has(key)) return { period: t - seen.get(key), repeat: current };
+        seen.set(key, t);
+      }
+      return { period: 0, repeat: current };
+    }
+
+    function* exhaustiveCanonicalStates(n) {
+      const total = 1n << BigInt(n * n);
+      for (let state = 0n; state < total; state++) {
+        if (!balanced(state, n * n, n)) continue;
+        if (canonicalState(n, state) === state) yield state;
+      }
+    }
+
+    function probeRuleSize(rule, n, options) {
+      const started = performance.now();
+      const exhaustive = n === 4 || (n === 5 && options.full5);
+      const states = exhaustive ? exhaustiveCanonicalStates(n) : null;
+      let tested = 0;
+      let maxPeriod = 0;
+      let witness = "";
+      let exhausted = false;
+      const deadline = started + options.timeBudget * 1000;
+      while (performance.now() < deadline) {
+        let state;
+        if (exhaustive) {
+          const next = states.next();
+          if (next.done) {
+            exhausted = true;
+            break;
+          }
+          state = next.value;
+        } else {
+          if (tested >= options.samples) break;
+          state = randomBalancedState(n);
+        }
+        tested++;
+        const p = period(n, state, rule.genome, options.maxSteps).period;
+        if (p > maxPeriod) {
+          maxPeriod = p;
+          witness = "0x" + state.toString(16);
+        }
+        if (p >= options.threshold) break;
+      }
+      return {
+        number: rule.number,
+        compact: rule.compact,
+        info: rule.info,
+        status: rule.status,
+        n,
+        tested,
+        maxPeriod,
+        passed: maxPeriod >= options.threshold,
+        witness,
+        exhausted,
+        seconds: (performance.now() - started) / 1000
+      };
+    }
+
+    function renderStatus() {
+      const done = results.length;
+      const total = queue.length * 5;
+      el.status.textContent =
+        `state: ${running ? "running" : "stopped"}\n` +
+        `rules queued: ${queue.length}\n` +
+        `rule: ${Math.min(currentRuleIndex + 1, queue.length)} / ${queue.length}\n` +
+        `board size: ${currentSize}×${currentSize}\n` +
+        `results: ${done} / ${total || 0}`;
+    }
+
+    function renderResults() {
+      el.results.innerHTML = results.map(row => {
+        const href = `CA_Rule_Player.html?number=${row.number}&genome=${genomeFromNumber(row.number)}&compact=${encodeURIComponent(row.compact)}${row.info ? "&name=" + encodeURIComponent(row.info) : ""}`;
+        return `<tr class="${row.status === "named_reference" || row.status === "feedback_unknown" ? "reference" : ""} ${row.passed ? "pass" : ""}">
+          <td><a href="${href}" target="_blank" rel="noopener">${row.number}</a></td>
+          <td>${row.compact}</td>
+          <td>${row.info || ""}</td>
+          <td>${row.status}</td>
+          <td>${row.n}×${row.n}</td>
+          <td>${row.tested}</td>
+          <td>${row.maxPeriod}</td>
+          <td>${row.passed ? "yes" : "no"}</td>
+          <td>${row.witness}</td>
+          <td>${row.seconds.toFixed(3)}</td>
+        </tr>`;
+      }).join("");
+      const passed = new Set(results.filter(row => row.passed).map(row => row.number)).size;
+      el.details.textContent =
+        `Loaded rules are sorted similarly to CA_Rule_Search: references first, then saved searched rules by reference-affinity score.\n` +
+        `Rules with any period at or above the threshold are highlighted. Distinct passing rules so far: ${passed}.`;
+      renderStatus();
+    }
+
+    function loadRules() {
+      try {
+        const { selected, loaded } = selectRules();
+        rules = selected;
+        queue = selected.slice();
+        currentRuleIndex = 0;
+        currentSize = 4;
+        results = [];
+        running = false;
+        rng = mulberry32(intInput(el.seed, 0, 0xffffffff, 12345));
+        el.details.textContent = `Loaded ${rules.length} rules from saved CA_Rule_Search data. Saved at ${new Date(loaded.payload.savedAt).toLocaleString()}.`;
+      } catch (error) {
+        el.details.textContent = `Load failed: ${error.message}`;
+      }
+      renderResults();
+    }
+
+    function runOne() {
+      if (currentRuleIndex >= queue.length) {
+        running = false;
+        renderResults();
+        return;
+      }
+      const rule = queue[currentRuleIndex];
+      const options = {
+        threshold: intInput(el.threshold, 2, 10000, 8),
+        samples: intInput(el.samples, 1, 1000000, 2000),
+        maxSteps: intInput(el.maxSteps, 8, 100000, 10000),
+        timeBudget: numInput(el.timeBudget, 0.05, 60, 2),
+        full5: el.full5.value === "yes"
+      };
+      results.push(probeRuleSize(rule, currentSize, options));
+      currentSize++;
+      if (currentSize > 8) {
+        currentSize = 4;
+        currentRuleIndex++;
+      }
+      renderResults();
+    }
+
+    function loop() {
+      if (!running) return;
+      runOne();
+      if (running) setTimeout(loop, 0);
+    }
+
+    function start() {
+      if (!queue.length) loadRules();
+      if (!queue.length || running) return;
+      running = true;
+      renderStatus();
+      setTimeout(loop, 0);
+    }
+
+    function stop() {
+      running = false;
+      renderStatus();
+    }
+
+    function downloadCsv() {
+      const header = ["number", "compact", "info", "status", "n", "tested", "max_period", "passed", "witness", "seconds"];
+      const lines = [header.join(",")];
+      for (const row of results) {
+        lines.push([
+          row.number, row.compact, row.info, row.status, row.n, row.tested,
+          row.maxPeriod, row.passed ? 1 : 0, row.witness, row.seconds.toFixed(6)
+        ].map(value => `"${String(value).replace(/"/g, '""')}"`).join(","));
+      }
+      const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "period_probe_results.csv";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    el.load.addEventListener("click", loadRules);
+    el.start.addEventListener("click", start);
+    el.stop.addEventListener("click", stop);
+    el.clear.addEventListener("click", () => {
+      results = [];
+      currentRuleIndex = 0;
+      currentSize = 4;
+      renderResults();
+    });
+    el.download.addEventListener("click", downloadCsv);
+    loadRules();
+  </script>
+</body>
+</html>
